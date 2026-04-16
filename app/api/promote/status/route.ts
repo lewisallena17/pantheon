@@ -5,9 +5,21 @@ import path from 'node:path'
 const PROMOTE_LOG = path.resolve(process.cwd(), 'scripts/promote-log.json')
 const REVENUE_LOG = path.resolve(process.cwd(), 'scripts/revenue-log.json')
 
+type Entry = {
+  postedAt?:       string
+  redditUrl?:      string
+  submitUrl?:      string
+  tweetId?:        string
+  error?:          string
+  dryRun?:         boolean
+  requiresManual?: boolean
+}
+type PromoteLog = { posts: Record<string, Record<string, Record<string, Entry>>> }
+type RevenueLog = { posts?: Array<{ id: number; title: string; devToUrl?: string; published?: boolean }> }
+
 export async function GET() {
-  let promoteLog: { posts: Record<string, Record<string, Record<string, { postedAt?: string; redditUrl?: string; submitUrl?: string; tweetId?: string; error?: string; dryRun?: boolean; requiresManual?: boolean }>> } } = { posts: {} }
-  let revenueLog: { posts?: Array<{ id: number; title: string; devToUrl?: string; published?: boolean }> } = {}
+  let promoteLog: PromoteLog = { posts: {} }
+  let revenueLog: RevenueLog = {}
 
   try { promoteLog = JSON.parse(await fs.readFile(PROMOTE_LOG, 'utf8')) } catch {}
   try { revenueLog = JSON.parse(await fs.readFile(REVENUE_LOG, 'utf8')) } catch {}
