@@ -4,7 +4,7 @@ import { promisify } from 'node:util'
 
 const execAsync = promisify(exec)
 
-const ALLOWED_NAMES = new Set(['god', 'ruflo-agents', 'ruflo-orchestrator', 'revenue', 'all'])
+const ALLOWED_NAMES = new Set(['god', 'ruflo-agents', 'ruflo-orchestrator', 'revenue', 'promote', 'all'])
 const ALLOWED_ACTIONS = new Set(['start', 'stop', 'restart', 'reload'])
 
 export async function POST(req: NextRequest) {

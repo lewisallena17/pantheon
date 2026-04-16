@@ -26,6 +26,8 @@ import LiveFeed from './LiveFeed'
 import GitHistory from './GitHistory'
 import CIStatus from './CIStatus'
 import ContributionGraph from './ContributionGraph'
+import DevToLiveStats from './DevToLiveStats'
+import RevenueAutomation from './RevenueAutomation'
 
 interface Props {
   initialTodos: Todo[]
@@ -88,8 +90,10 @@ export default function DashboardShell({ initialTodos }: Props) {
         <CostTracker />
       </div>
 
-      <div id={SECTION_IDS.revenue}>
+      <div id={SECTION_IDS.revenue} className="space-y-4">
         <RevenueTracker />
+        <DevToLiveStats />
+        <RevenueAutomation />
       </div>
 
       <StreakCounter todos={todos} />

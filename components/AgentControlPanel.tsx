@@ -16,6 +16,7 @@ const LABELS: Record<string, { label: string; emoji: string; color: string }> = 
   'ruflo-agents':       { label: 'AGENTS',       emoji: '⚡', color: 'text-cyan-400'   },
   'ruflo-orchestrator': { label: 'ORCHESTRATOR', emoji: '🎯', color: 'text-purple-400' },
   'revenue':            { label: 'REVENUE',      emoji: '💰', color: 'text-yellow-400' },
+  'promote':            { label: 'PROMOTER',     emoji: '📢', color: 'text-pink-400'   },
 }
 
 export default function AgentControlPanel() {
