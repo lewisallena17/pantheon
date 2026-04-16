@@ -1,0 +1,31 @@
+module.exports = {
+  apps: [
+    {
+      name: 'ruflo-orchestrator',
+      script: 'scripts/orchestrator.mjs',
+      watch: false,
+      autorestart: true,
+      restart_delay: 5000,
+      max_restarts: 20,
+      env: { NODE_ENV: 'production' },
+    },
+    {
+      name: 'god',
+      script: 'scripts/god-agent.mjs',
+      watch: false,
+      autorestart: true,
+      restart_delay: 10000,
+      max_restarts: 10,
+      env: { NODE_ENV: 'production' },
+    },
+    {
+      name: 'ruflo-agents',
+      script: 'scripts/ruflo-runner.mjs',
+      watch: false,
+      autorestart: true,
+      restart_delay: 5000,
+      max_restarts: 20,
+      env: { NODE_ENV: 'production' },
+    },
+  ],
+}

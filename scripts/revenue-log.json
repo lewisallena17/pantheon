@@ -1,0 +1,71 @@
+{
+  "posts": [
+    {
+      "id": 1,
+      "title": "I Built an AI System That Runs Itself 24/7 — Here's What Actually Happened",
+      "topicType": "weekly-recap",
+      "body": "I've been running a fully autonomous AI agent system on my home PC for the past few weeks. It creates its own tasks, assigns them to specialist agents, and tries to improve itself. No human in the loop. Here's what I learned.\n\n## What It Is\n\nIt's a multi-agent pipeline built on top of Claude (Anthropic's API) and Supabase. The architecture is:\n\n- **God Agent** — a meta-orchestrator that wakes up every 2 minutes, surveys the system, and creates new tasks\n- **Specialist Agents** — pools of workers...",
+      "publishedAt": "2026-04-14T18:15:02.240Z",
+      "platform": "dev.to",
+      "devToId": 3501191,
+      "devToUrl": "https://dev.to/lewisallena17/i-built-an-ai-system-that-runs-itself-247-heres-what-actually-happened-1p17",
+      "published": true,
+      "views": 0,
+      "reactions": 0,
+      "estimatedEarns": 0,
+      "tags": [
+        "ai",
+        "automation",
+        "productivity",
+        "programming"
+      ],
+      "comments": 0
+    },
+    {
+      "id": 2,
+      "title": "Building a Self-Improving God Agent with Claude AI",
+      "topicType": "technical-deep-dive",
+      "body": "# Building a Self-Improving God Agent with Claude AI\n\n*How I built an autonomous AI orchestrator that manages its own agent pool, persists wisdom across restarts, and gets smarter every two minutes*\n\n---\n\nAfter months of wrestling with one-shot AI scripts that forget everything between runs, I built something different: a persistent orchestrator that runs continuously, learns from its mistakes, and routes work to a pool of specialist agents. We call it the God Agent. It's been running in product...",
+      "publishedAt": "2026-04-16T18:14:18.327Z",
+      "platform": "dev.to",
+      "devToId": 3511813,
+      "devToUrl": "https://dev.to/lewisallena17/building-a-self-improving-god-agent-with-claude-ai-2g4m",
+      "published": true,
+      "views": 0,
+      "reactions": 0,
+      "estimatedEarns": 0,
+      "tags": [
+        "ai",
+        "claude",
+        "typescript",
+        "nextjs"
+      ],
+      "comments": 0
+    }
+  ],
+  "totalEstimatedEarnings": 0,
+  "totalEstimatedViews": 0,
+  "gumroadProducts": [
+    {
+      "name": "Autonomous AI Task Dashboard",
+      "tagline": "Deploy self-improving AI agents that work 24/7, learn from failures, and manage your tasks autonomously.",
+      "description": "Stop building AI agents from scratch. The Autonomous AI Task Dashboard is a production-ready Next.js + Supabase + Claude starter kit that lets you deploy autonomous agents that actually get things done.\n\nThis isn't a toy. Our system has processed 219+ real tasks with a 29% success rate—and it gets smarter every run. Here's what makes it different:\n\n**Self-Improving Architecture**: A \"God orchestrator\" agent learns from every task execution, persisting wisdom across runs so your system improves without retraining.\n\n**Intelligent Routing**: Specialist agents automatically handle database operations, UI changes, and infrastructure tasks—no manual routing needed.\n\n**Real-Time Visibility**: Watch your agents work live with a React dashboard powered by Supabase Realtime. See every decision, every failure, every improvement.\n\n**Cost Control Built-In**: Track Claude API spend in real-time with daily caps and granular cost breakdowns per task.\n\n**Battle-Tested Stack**: Next.js 14, TypeScript, Supabase for persistence, Claude 3.5 Sonnet for reasoning.\n\nPerfect for founders building AI features, agencies automating client work, or teams wanting autonomous task execution without the DevOps nightmare. Deploy in minutes, not weeks.",
+      "included": [
+        "Complete Next.js 14 + TypeScript codebase",
+        "Supabase schema (agents, tasks, executions, costs)",
+        "Claude AI orchestrator with self-improvement loop",
+        "Specialist agent templates (Database, UI, Infrastructure)",
+        "Real-time React dashboard with live agent monitoring",
+        "Cost tracking system with daily spend caps",
+        "Task queue management and failure recovery",
+        "Deployment guide (Vercel + Supabase)",
+        "Example autonomous workflows (4 pre-built)",
+        "API documentation and customization guide",
+        "Prompt templates optimized for task execution"
+      ],
+      "price": 39,
+      "generatedAt": "2026-04-16T18:14:24.367Z"
+    }
+  ],
+  "lastUpdated": "2026-04-16T18:38:44.653Z"
+}

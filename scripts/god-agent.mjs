@@ -1,0 +1,1374 @@
+/**
+ * god-agent.mjs — The GOD agent v2
+ *
+ * An evolving, self-improving orchestrator with:
+ *  - Goal-directed strategic roadmap
+ *  - Agent performance tracking + smart routing
+ *  - Multi-agent council decisions
+ *  - Task completion reviewer
+ *  - Self-improvement loop
+ *  - Dynamic priority scoring
+ *  - Regression detection + rollback
+ *  - Direct dashboard editing (every 5 cycles)
+ *
+ * pm2 start scripts/god-agent.mjs --name god
+ */
+
+import { createClient } from '@supabase/supabase-js'
+import Anthropic from '@anthropic-ai/sdk'
+import { readFileSync, writeFileSync, existsSync, readdirSync, mkdirSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+import { dirname, join, resolve } from 'node:path'
+
+const __dirname   = dirname(fileURLToPath(import.meta.url))
+const PROJECT_ROOT = resolve(__dirname, '..')
+
+// ── Load env first ────────────────────────────────────────────────────────
+const envPath = join(__dirname, '..', '.env.local')
+try {
+  const envFile = readFileSync(envPath, 'utf8')
+  for (const line of envFile.split('\n')) {
+    const match = line.match(/^([^#=]+)=(.*)$/)
+    if (match) process.env[match[1].trim()] = match[2].trim()
+  }
+} catch {}
+
+const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+const MODELS = { sonnet: 'claude-sonnet-4-6', haiku: 'claude-haiku-4-5-20251001' }
+
+const supabase = createClient(
+  process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+)
+
+const WISDOM_PATH       = join(__dirname, 'god-wisdom.json')
+const RESEARCH_LOG_PATH = join(__dirname, 'god-research.json')
+const COST_LOG_PATH     = join(__dirname, 'cost-log.json')
+
+// ── Spend guard ────────────────────────────────────────────────────────────
+const DAILY_LIMIT_USD = parseFloat(process.env.DAILY_COST_LIMIT_USD ?? '2.00')
+
+function getGodTodaySpend() {
+  try {
+    const log = JSON.parse(readFileSync(COST_LOG_PATH, 'utf8'))
+    const today = new Date().toISOString().slice(0, 10)
+    return (log.sessions ?? [])
+      .filter(s => s.at?.startsWith(today))
+      .reduce((sum, s) => sum + (s.cost ?? 0), 0)
+  } catch { return 0 }
+}
+
+function isCreditError(err) {
+  return err.status === 400 && (
+    err.message?.includes('credit balance') ||
+    err.message?.includes('Your credit balance is too low')
+  )
+}
+
+// ── Web helpers ────────────────────────────────────────────────────────────
+async function webSearch(query) {
+  try {
+    const q = encodeURIComponent(query)
+    const res = await fetch(
+      `https://api.duckduckgo.com/?q=${q}&format=json&no_redirect=1&no_html=1&skip_disambig=1`,
+      { signal: AbortSignal.timeout(10000) }
+    )
+    const data = await res.json()
+    const parts = [
+      data.AbstractText && `Summary: ${data.AbstractText}`,
+      ...(data.RelatedTopics ?? []).slice(0, 6).map(t => t.Text).filter(Boolean),
+    ].filter(Boolean)
+    return parts.length ? parts.join('\n\n') : null
+  } catch (e) {
+    console.log(`[GOD-WEB] Search failed: ${e.message}`)
+    return null
+  }
+}
+
+async function fetchUrl(url) {
+  try {
+    const res = await fetch(`https://r.jina.ai/${url}`, {
+      headers: { 'Accept': 'text/plain', 'X-No-Cache': 'true' },
+      signal: AbortSignal.timeout(15000),
+    })
+    return (await res.text()).slice(0, 5000)
+  } catch (e) {
+    console.log(`[GOD-WEB] Fetch failed: ${e.message}`)
+    return null
+  }
+}
+
+function loadResearchLog() {
+  try { if (existsSync(RESEARCH_LOG_PATH)) return JSON.parse(readFileSync(RESEARCH_LOG_PATH, 'utf8')) } catch {}
+  return { entries: [], queriesAsked: [] }
+}
+
+function saveResearchLog(log) {
+  try { writeFileSync(RESEARCH_LOG_PATH, JSON.stringify(log, null, 2), 'utf8') } catch {}
+}
+
+// ── Claude helpers ────────────────────────────────────────────────────────
+async function ask(prompt, { model = 'sonnet', maxTokens = 800 } = {}) {
+  let delay = 60_000
+  for (let attempt = 0; attempt < 4; attempt++) {
+    try {
+      const msg = await anthropic.messages.create({
+        model: MODELS[model] ?? MODELS.sonnet,
+        max_tokens: maxTokens,
+        messages: [{ role: 'user', content: prompt }],
+      })
+      return msg.content[0]?.type === 'text' ? msg.content[0].text : ''
+    } catch (err) {
+      if (isCreditError(err)) {
+        console.error('[GOD] ⛔ CREDIT EXHAUSTED — pausing. Top up at console.anthropic.com/billing')
+        throw err  // propagate immediately — no retry
+      }
+      const is429 = err.status === 429 || err.message?.includes('rate_limit')
+      if (is429 && attempt < 3) {
+        console.log(`[GOD] Rate limited — waiting ${delay/1000}s...`)
+        await new Promise(r => setTimeout(r, delay))
+        delay = Math.min(delay * 1.5, 300_000)
+        continue
+      }
+      throw err
+    }
+  }
+  return ''
+}
+
+function extractJSON(text, fallback = null) {
+  const arr = text.match(/\[[\s\S]*?\]/)
+  const obj = text.match(/\{[\s\S]*\}/)
+  try { if (arr) return JSON.parse(arr[0]) } catch {}
+  try { if (obj) return JSON.parse(obj[0]) } catch {}
+  return fallback
+}
+
+// ── God status ────────────────────────────────────────────────────────────
+async function setGodThought(thought, meta = null) {
+  console.log(`[GOD] ${thought}`)
+  try {
+    const payload = { id: 1, thought, updated_at: new Date().toISOString() }
+    if (meta) payload.meta = meta
+    await supabase.from('god_status').upsert(payload)
+  } catch {}
+}
+
+function deriveMood(wisdom) {
+  const { attempted, succeeded, failed } = wisdom.taskStats
+  if (attempted < 3) return { mood: 'AWAKENING', color: 'cyan', icon: '◈' }
+  const rate = succeeded / Math.max(attempted, 1)
+  if (rate >= 0.80) return { mood: 'OMNIPOTENT', color: 'yellow', icon: '★' }
+  if (rate >= 0.55) return { mood: 'VIGILANT',   color: 'green',  icon: '◉' }
+  if (rate >= 0.35) return { mood: 'TROUBLED',   color: 'orange', icon: '◎' }
+  return { mood: 'SUFFERING', color: 'red', icon: '✕' }
+}
+
+// ── Persistent wisdom ─────────────────────────────────────────────────────
+const WISDOM_DEFAULTS = {
+  cycles: 0,
+  lessons: [],
+  avoidPatterns: [],
+  successPatterns: [],
+  agentStats: {},
+  roadmap: { goals: [], completedGoals: [] },
+  recentReviews: [],
+  taskStats: { attempted: 0, succeeded: 0, failed: 0 },
+  lastReflection: null,
+  lastRoadmapUpdate: null,
+  dashboardEdits: [],      // log of god's own dashboard edits
+  failurePostmortems: [],  // root causes extracted from failed task comments
+  lastDecrees: [],         // titles created last cycle for sequential tracking
+  categoryStats: {         // per-category success tracking
+    db:       { succeeded: 0, failed: 0 },
+    ui:       { succeeded: 0, failed: 0 },
+    infra:    { succeeded: 0, failed: 0 },
+    analysis: { succeeded: 0, failed: 0 },
+    other:    { succeeded: 0, failed: 0 },
+  },
+  decisionHistory: [],     // last 20 cycle decisions for dashboard display
+}
+
+// ── 4. Proven safe-mode task templates ────────────────────────────────────
+const TASK_TEMPLATES = [
+  { title: 'Query all todos grouped by status and log the counts using agent_exec_sql', priority: 'low' },
+  { title: 'Run SELECT COUNT(*) on each public table and log results via agent_exec_sql', priority: 'low' },
+  { title: 'Query god_status table and log the current thought and cycle count', priority: 'low' },
+  { title: 'List all indexes on the todos table via information_schema query', priority: 'low' },
+  { title: 'Read components/StatsBar.tsx and add a brief comment explaining its purpose', priority: 'low' },
+  { title: 'Query traces table and log the 5 most recent tool calls with their durations', priority: 'low' },
+  { title: 'Run EXPLAIN on SELECT * FROM todos WHERE status=pending to check query plan', priority: 'low' },
+]
+
+function getSafeModeTasks(todos, wisdom) {
+  const existingTitles = new Set(todos.map(t => t.title.toLowerCase()))
+  return TASK_TEMPLATES
+    .filter(t => !existingTitles.has(t.title.toLowerCase()))
+    .filter(t => !(wisdom.avoidPatterns ?? []).some(p => t.title.toLowerCase().includes(p.toLowerCase())))
+    .slice(0, 1) // one safe task at a time
+}
+
+// ── Task category classifier ──────────────────────────────────────────────
+const CAT_KEYWORDS_GOD = {
+  db:       ['sql','query','table','database','schema','postgres','supabase','migration','index','agent_exec_sql','ddl','select','trigger','rpc','function'],
+  ui:       ['component','tsx','react','tailwind','dashboard','ui','button','form','chart','graph','page','layout','style','animation','modal','panel'],
+  infra:    ['pm2','deploy','ci','docker','server','npm','package','config','env','script','runner','cron','webhook'],
+  analysis: ['analyze','analyse','review','report','audit','check','assess','evaluate','summarize','count','stats','metrics','log'],
+}
+
+function classifyTask(title) {
+  const lower = title.toLowerCase()
+  for (const [cat, kws] of Object.entries(CAT_KEYWORDS_GOD)) {
+    if (kws.some(kw => lower.includes(kw))) return cat
+  }
+  return 'other'
+}
+
+function buildCategoryStats(todos) {
+  const stats = {
+    db:       { succeeded: 0, failed: 0 },
+    ui:       { succeeded: 0, failed: 0 },
+    infra:    { succeeded: 0, failed: 0 },
+    analysis: { succeeded: 0, failed: 0 },
+    other:    { succeeded: 0, failed: 0 },
+  }
+  for (const t of todos) {
+    const cat = classifyTask(t.title)
+    if (t.status === 'completed') stats[cat].succeeded++
+    if (t.status === 'failed')    stats[cat].failed++
+  }
+  return stats
+}
+
+function categorySuccessRate(cat, categoryStats) {
+  const s = categoryStats?.[cat]
+  if (!s) return 50
+  const total = s.succeeded + s.failed
+  return total === 0 ? 50 : Math.round(s.succeeded / total * 100)
+}
+
+function loadWisdom() {
+  try {
+    if (existsSync(WISDOM_PATH)) {
+      const saved = JSON.parse(readFileSync(WISDOM_PATH, 'utf8'))
+      // Merge with defaults so new fields are always present
+      return {
+        ...WISDOM_DEFAULTS, ...saved,
+        agentStats:      saved.agentStats      ?? {},
+        roadmap:         saved.roadmap         ?? WISDOM_DEFAULTS.roadmap,
+        taskStats:       saved.taskStats       ?? WISDOM_DEFAULTS.taskStats,
+        categoryStats:   saved.categoryStats   ?? WISDOM_DEFAULTS.categoryStats,
+        decisionHistory: saved.decisionHistory ?? [],
+      }
+    }
+  } catch {}
+  return { ...WISDOM_DEFAULTS }
+}
+
+function saveWisdom(w) {
+  try { writeFileSync(WISDOM_PATH, JSON.stringify(w, null, 2), 'utf8') } catch {}
+}
+
+// ── Survey ────────────────────────────────────────────────────────────────
+async function survey() {
+  const { data } = await supabase
+    .from('todos').select('*')
+    .order('created_at', { ascending: false }).limit(60)
+  return data ?? []
+}
+
+async function surveySchema() {
+  try {
+    const { data: tables }    = await supabase.rpc('agent_exec_sql', { query: `SELECT table_name FROM information_schema.tables WHERE table_schema='public' ORDER BY table_name` })
+    const { data: functions } = await supabase.rpc('agent_exec_sql', { query: `SELECT routine_name FROM information_schema.routines WHERE routine_schema='public' ORDER BY routine_name` })
+    return {
+      tableNames: (tables ?? []).map(r => r.table_name).join(', ') || 'todos, god_status',
+      funcNames:  (functions ?? []).map(r => r.routine_name).join(', ') || 'agent_exec_sql, agent_exec_ddl',
+    }
+  } catch {
+    return { tableNames: 'todos, god_status', funcNames: 'agent_exec_sql, agent_exec_ddl' }
+  }
+}
+
+// ── 1. Agent performance tracking ────────────────────────────────────────
+function updateAgentStats(todos, wisdom) {
+  const stats = { ...wisdom.agentStats }
+
+  for (const t of todos) {
+    if (!t.assigned_agent) continue
+    // Normalise agent name to its pool (strip the unique suffix)
+    const pool = t.assigned_agent.replace(/-[a-f0-9]{6}$/, '')
+    if (!stats[pool]) stats[pool] = { completed: 0, failed: 0, taskTypes: [] }
+
+    if (t.status === 'completed') stats[pool].completed++
+    if (t.status === 'failed')    stats[pool].failed++
+
+    // Infer task type keyword
+    const kw = t.title.split(' ').slice(0, 3).join(' ').toLowerCase()
+    if (!stats[pool].taskTypes.includes(kw)) {
+      stats[pool].taskTypes = [...stats[pool].taskTypes.slice(-10), kw]
+    }
+  }
+
+  return { ...wisdom, agentStats: stats }
+}
+
+// Pick best agent pool based on performance history
+const SPECIALIST_MAP = {
+  db:       'db-specialist',
+  ui:       'ui-specialist',
+  infra:    'ruflo-critical',
+  analysis: 'ruflo-high',
+  other:    'ruflo-medium',
+}
+
+function pickAgent(taskTitle, agentStats, categoryStats) {
+  const cat = classifyTask(taskTitle)
+
+  // Use specialist agent for db/ui tasks — they get domain-tuned prompts + sonnet
+  const specialist = SPECIALIST_MAP[cat]
+  if (specialist) return specialist
+
+  // Fall back to best-performing pool from history
+  const pools = Object.entries(agentStats ?? {})
+  if (!pools.length) return null
+  const scored = pools.map(([name, s]) => ({
+    name,
+    score: s.completed / Math.max(s.completed + s.failed, 1),
+  })).sort((a, b) => b.score - a.score)
+
+  return scored[0]?.name ?? null
+}
+
+// ── 2. Strategic roadmap ──────────────────────────────────────────────────
+async function updateRoadmap(todos, schema, wisdom) {
+  const now = Date.now()
+  const lastUpdate = wisdom.lastRoadmapUpdate ? new Date(wisdom.lastRoadmapUpdate).getTime() : 0
+  // Only update roadmap every 4 cycles
+  if (wisdom.cycles % 4 !== 0) return wisdom
+
+  await setGodThought('Updating strategic roadmap...')
+
+  const completedTitles = todos.filter(t => t.status === 'completed').map(t => t.title)
+  const existingGoals   = wisdom.roadmap.goals.map(g => `[${g.status}] ${g.title}`).join('\n') || 'none'
+
+  const prompt = `You are GOD planning the strategic direction of a Next.js 14 + Supabase agent dashboard.
+
+EXISTING DB TABLES: ${schema.tableNames}
+COMPLETED WORK: ${completedTitles.slice(0, 15).join(', ') || 'none'}
+CURRENT GOALS: ${existingGoals}
+
+Define 2-4 high-level strategic goals for the next 10-20 cycles.
+Each goal should be achievable through 3-6 sequential tasks.
+Goals must only reference tables/features that exist or can be built incrementally.
+
+Reply ONLY with JSON array:
+[{"id":"g1","title":"goal title","priority":"high","status":"active","tasksCreated":0}]`
+
+  try {
+    const raw = await ask(prompt, { model: 'haiku', maxTokens: 400 })
+    const goals = extractJSON(raw, wisdom.roadmap.goals)
+
+    if (Array.isArray(goals)) {
+      return {
+        ...wisdom,
+        roadmap: {
+          goals: goals.slice(0, 5),
+          completedGoals: wisdom.roadmap.completedGoals,
+        },
+        lastRoadmapUpdate: new Date().toISOString(),
+      }
+    }
+  } catch {}
+  return wisdom
+}
+
+// ── 3. Task completion reviewer ────────────────────────────────────────────
+async function reviewCompletions(todos, wisdom) {
+  // Only review every 3 cycles
+  if (wisdom.cycles % 3 !== 0) return wisdom
+
+  const recentlyDone = todos
+    .filter(t => t.status === 'completed')
+    .filter(t => {
+      const age = Date.now() - new Date(t.updated_at).getTime()
+      return age < 30 * 60 * 1000 // completed in last 30 min
+    })
+    .slice(0, 5)
+
+  if (!recentlyDone.length) return wisdom
+
+  await setGodThought(`Reviewing ${recentlyDone.length} recent completions...`)
+
+  const reviews = []
+  for (const task of recentlyDone) {
+    const lastComment = task.comments?.slice(-1)[0]?.text ?? 'no comment'
+    const prompt = `A coding agent claimed to complete this task:
+TASK: "${task.title}"
+AGENT COMMENT: "${lastComment}"
+
+Based only on the task title and what the agent said, does the comment suggest the task was actually implemented or did the agent give up / hit an error?
+
+Reply with JSON only: {"passed": true/false, "note": "one sentence reason"}`
+
+    try {
+      const raw = await ask(prompt, { model: 'haiku', maxTokens: 150 })
+      const result = extractJSON(raw, { passed: true, note: '' })
+      if (result && result.passed === false) {
+        console.log(`[GOD] Review FAILED: "${task.title}" — ${result.note}`)
+        reviews.push({ taskTitle: task.title.slice(0, 80), passed: false, note: result.note })
+        // Mark as failed so it gets retried
+        await supabase.from('todos').update({ status: 'failed' }).eq('id', task.id)
+      } else {
+        reviews.push({ taskTitle: task.title.slice(0, 80), passed: true, note: result?.note ?? '' })
+      }
+    } catch {}
+  }
+
+  return {
+    ...wisdom,
+    recentReviews: [...wisdom.recentReviews, ...reviews].slice(-20),
+  }
+}
+
+// ── 4. Regression detection ───────────────────────────────────────────────
+async function detectRegressions(todos, wisdom) {
+  // Find agents that keep failing the same type of task
+  const failedTitles = todos.filter(t => t.status === 'failed').map(t => t.title.toLowerCase())
+
+  const duplicateFailures = failedTitles.filter((t, i) =>
+    failedTitles.findIndex(x => x.includes(t.split(' ').slice(0, 4).join(' '))) !== i
+  )
+
+  if (duplicateFailures.length > 2) {
+    console.log(`[GOD] Regression detected: ${duplicateFailures.length} repeated failure patterns`)
+    // Add to avoid patterns
+    const newAvoids = duplicateFailures.slice(0, 3).map(t => t.split(' ').slice(0, 5).join(' '))
+    return {
+      ...wisdom,
+      avoidPatterns: [...new Set([...wisdom.avoidPatterns, ...newAvoids])].slice(-20),
+    }
+  }
+
+  return wisdom
+}
+
+// ── 5. Dynamic priority scoring ────────────────────────────────────────────
+async function scorePendingTasks(todos) {
+  const pending = todos.filter(t => t.status === 'pending')
+  if (!pending.length) return
+
+  // Score each pending task and update its priority if needed
+  for (const task of pending) {
+    const ageHours = (Date.now() - new Date(task.created_at).getTime()) / 3600000
+    const isSimple = task.title.split(' ').length < 15
+    const isDB     = /index|function|trigger|column|table/.test(task.title.toLowerCase())
+
+    // Boost: older tasks, simpler tasks, DB tasks (higher success rate)
+    let boost = 0
+    if (ageHours > 2) boost++
+    if (isSimple)     boost++
+    if (isDB)         boost++
+
+    const priorityMap = { low: 0, medium: 1, high: 2, critical: 3 }
+    const reverseMap  = ['low', 'medium', 'high', 'critical']
+    const current     = priorityMap[task.priority] ?? 1
+    const boosted     = Math.min(current + (boost >= 2 ? 1 : 0), 3)
+
+    if (boosted > current) {
+      await supabase.from('todos')
+        .update({ priority: reverseMap[boosted] })
+        .eq('id', task.id)
+      console.log(`[GOD] Boosted priority: "${task.title.slice(0, 50)}" → ${reverseMap[boosted]}`)
+    }
+  }
+}
+
+// ── 6. Multi-agent council ────────────────────────────────────────────────
+async function councilThink(todos, schema, wisdom) {
+  await setGodThought('Convening council of perspectives...')
+
+  const completed = [], failed = [], blocked = []
+  for (const t of todos) {
+    if (t.status === 'completed') completed.push(t)
+    else if (t.status === 'failed') failed.push(t)
+    else if (t.status === 'blocked') blocked.push(t)
+  }
+  const failedTitles = new Set(failed.map(t => t.title.toLowerCase()))
+  const summary      = todos.slice(0, 20).map(t => `[${t.status}][${t.priority}] ${t.title}`).join('\n')
+
+  // Category success rates
+  const catStats = wisdom.categoryStats ?? {}
+  const catRates = Object.entries(catStats)
+    .map(([cat, s]) => {
+      const total = s.succeeded + s.failed
+      const rate  = total === 0 ? '?' : `${Math.round(s.succeeded / total * 100)}%`
+      return `${cat}:${rate}(${total} tasks)`
+    }).join(' | ')
+
+  const wisdomBlock = `
+LESSONS (${wisdom.lessons.length}): ${wisdom.lessons.slice(-5).join(' | ') || 'none'}
+AVOID: ${wisdom.avoidPatterns.slice(-5).join(' | ') || 'none'}
+WORKS: ${wisdom.successPatterns.slice(-5).join(' | ') || 'none'}
+GOALS: ${wisdom.roadmap.goals.filter(g => g.status === 'active').map(g => g.title).join(' | ') || 'none'}
+CATEGORY SUCCESS RATES: ${catRates || 'no data yet'}
+BLOCKED TASKS: ${blocked.slice(0,3).map(t=>t.title).join(' | ') || 'none'}`
+
+  const context = `
+DB TABLES: ${schema.tableNames}
+DB FUNCTIONS: ${schema.funcNames}
+QUEUE: ${summary}
+FAILED (never recreate): ${failed.slice(0, 8).map(t => t.title).join(' | ') || 'none'}
+${wisdomBlock}
+
+AGENT ROUTING NOTE: db tasks → db-specialist (sonnet), ui tasks → ui-specialist (sonnet), others → ruflo pools.
+Prefer task types with highest category success rates.`
+
+  // Perspective 1: Strategist  |  Perspective 2: Pragmatist  |  Perspective 3: Skeptic
+  const [strat, prag, skept] = await Promise.all([
+    ask(`You are the STRATEGIST on GOD's council.
+Propose 2 tasks that advance the strategic roadmap goals.
+${context}
+Reply ONLY with JSON array: [{"title":"task","priority":"high","rationale":"why"}]`, { model: 'haiku', maxTokens: 300 }),
+
+    ask(`You are the PRAGMATIST on GOD's council.
+Propose 2 tasks GUARANTEED to succeed using only what already exists.
+Only reference tables in: ${schema.tableNames}
+Only reference functions in: ${schema.funcNames}
+${context}
+Reply ONLY with JSON array: [{"title":"task","priority":"medium","rationale":"why"}]`, { model: 'haiku', maxTokens: 300 }),
+
+    ask(`You are the SKEPTIC on GOD's council.
+Your job: reject any task that won't work. Be harsh.
+${context}
+
+For each item below, verdict APPROVE or REJECT.
+Reject if: function/table doesn't exist, too vague, matches a prior failure, or needs missing prerequisites.
+Available tables: ${schema.tableNames}
+Available functions: ${schema.funcNames}
+
+Reply ONLY with a list, one per line: "APPROVE: task title" or "REJECT: task title (reason)"`, { model: 'haiku', maxTokens: 300 }),
+  ])
+
+  const stratTasks   = extractJSON(strat, [])
+  const pragTasks    = extractJSON(prag,  [])
+  let allProposed    = [
+    ...(Array.isArray(stratTasks) ? stratTasks : []),
+    ...(Array.isArray(pragTasks)  ? pragTasks  : []),
+  ]
+
+  // Apply skeptic vetoes
+  if (skept) {
+    const rejectedLines = skept.split('\n')
+      .filter(l => l.trim().toUpperCase().startsWith('REJECT'))
+      .map(l => l.replace(/^REJECT:\s*/i, '').split('(')[0].trim().toLowerCase())
+    if (rejectedLines.length) {
+      const before = allProposed.length
+      allProposed = allProposed.filter(t =>
+        !rejectedLines.some(rej => t.title?.toLowerCase().includes(rej.slice(0, 20)))
+      )
+      console.log(`[GOD-SKEPTIC] Vetoed ${before - allProposed.length} proposals`)
+    }
+  }
+
+  // Apply prerequisite validator — hard filter before synthesis
+  allProposed = allProposed.filter(t => {
+    const check = validateTask(t, schema)
+    if (!check.valid) {
+      console.log(`[GOD-PREREQ] Rejected "${t.title?.slice(0, 50)}" — ${check.reason}`)
+      return false
+    }
+    return true
+  })
+
+  if (!allProposed.length) return []
+
+  await setGodThought('Synthesising council proposals...')
+
+  const synthesisPrompt = `You are GOD synthesising council proposals into final decrees.
+
+PROPOSALS (already vetted by skeptic):
+${allProposed.map((t, i) => `${i + 1}. [${t.priority}] "${t.title}" — ${t.rationale ?? ''}`).join('\n')}
+
+DB TABLES: ${schema.tableNames}
+DB FUNCTIONS: ${schema.funcNames}
+FAILED (never recreate these): ${failed.slice(0, 5).map(t => `"${t.title.slice(0, 50)}"`).join(', ') || 'none'}
+LESSONS: ${wisdom.lessons.slice(-5).join(' | ') || 'none'}
+
+Pick the BEST 2-4 proposals. Create up to 4 tasks per cycle to keep parallel agents busy.
+Reject any that reference things not in the tables/functions lists above.
+
+Reply ONLY with JSON array:
+[{"title":"task title","priority":"high"}]`
+
+  try {
+    const raw  = await ask(synthesisPrompt, { model: 'sonnet', maxTokens: 500 })
+    const final = extractJSON(raw, [])
+    if (!Array.isArray(final)) return []
+
+    // Final filters: not already failed, passes prereq check
+    return final
+      .filter(t => t.title && !failedTitles.has(t.title.toLowerCase()))
+      .filter(t => validateTask(t, schema).valid)
+      .slice(0, 4) // hard cap: max 4 per cycle (matches parallel agent slots)
+  } catch {
+    return []
+  }
+}
+
+// ── 7. Reflection & learning (line-based parsing — reliable) ─────────────
+async function reflect(todos, wisdom) {
+  if (wisdom.cycles % 2 !== 0) return wisdom
+
+  const completed = [], failed = []
+  for (const t of todos) {
+    if (t.status === 'completed' && completed.length < 15) completed.push(t)
+    else if (t.status === 'failed' && failed.length < 15) failed.push(t)
+  }
+  if (!completed.length && !failed.length) return wisdom
+
+  await setGodThought('Extracting new lessons from outcomes...')
+
+  // Line-based prompt — haiku handles this much more reliably than JSON
+  const prompt = `You are GOD. Review task outcomes and write lessons.
+
+SUCCEEDED: ${completed.map(t => t.title.slice(0, 60)).join(' | ') || 'none'}
+FAILED: ${failed.map(t => t.title.slice(0, 60)).join(' | ') || 'none'}
+EXISTING LESSONS: ${wisdom.lessons.slice(-4).join(' | ') || 'none yet'}
+
+Write 2-3 SHORT lessons (max 12 words each). Start each lesson with "- ".
+Then write 1-2 patterns that WORK, starting each with "+ ".
+Then write 1-2 patterns to AVOID, starting each with "! ".
+
+Example format:
+- Simple SELECT queries on todos always succeed
++ Use agent_exec_sql for all DB reads
+! Never create tasks referencing non-existent functions`
+
+  try {
+    const raw  = await ask(prompt, { model: 'haiku', maxTokens: 250 })
+    const lines = raw.split('\n').map(l => l.trim()).filter(Boolean)
+
+    const newLessons  = lines.filter(l => l.startsWith('- ')).map(l => l.slice(2).trim())
+    const newSuccess  = lines.filter(l => l.startsWith('+ ')).map(l => l.slice(2).trim())
+    const newAvoid    = lines.filter(l => l.startsWith('! ')).map(l => l.slice(2).trim())
+
+    if (!newLessons.length && !newSuccess.length && !newAvoid.length) return wisdom
+
+    console.log(`[GOD] Learned ${newLessons.length} lessons, ${newSuccess.length} patterns, ${newAvoid.length} avoids`)
+
+    return {
+      ...wisdom,
+      lessons:         [...wisdom.lessons,         ...newLessons].slice(-30),
+      successPatterns: [...new Set([...wisdom.successPatterns, ...newSuccess])].slice(-20),
+      avoidPatterns:   [...new Set([...wisdom.avoidPatterns,   ...newAvoid])].slice(-20),
+      lastReflection:  new Date().toISOString(),
+    }
+  } catch {
+    return wisdom
+  }
+}
+
+// ── 7b. Failure postmortem — WHY did tasks fail? ──────────────────────────
+async function failurePostmortem(todos, wisdom) {
+  if (wisdom.cycles % 3 !== 0) return wisdom
+
+  // Only examine failures that have agent comments (real error info)
+  const recentFailed = todos
+    .filter(t => t.status === 'failed')
+    .filter(t => {
+      const last = t.comments?.slice(-1)[0]?.text ?? ''
+      return last.toLowerCase().includes('failed')
+    })
+    .slice(0, 4)
+
+  if (!recentFailed.length) return wisdom
+
+  await setGodThought(`Postmortem: analysing ${recentFailed.length} failures...`)
+
+  const rootCauses = []
+  for (const task of recentFailed) {
+    const errorMsg = task.comments?.slice(-1)[0]?.text ?? ''
+    const prompt = `Task: "${task.title.slice(0, 80)}"
+Error: "${errorMsg.slice(0, 200)}"
+
+In one short phrase (max 10 words), what was the root cause?
+Examples: "function did not exist", "rate limited by API", "wrong SQL syntax", "file path was wrong"
+Reply with just the phrase.`
+
+    try {
+      const cause = (await ask(prompt, { model: 'haiku', maxTokens: 40 })).trim().toLowerCase()
+      if (cause && cause.length > 3) {
+        rootCauses.push(`! ${task.title.slice(0, 40)} → ${cause}`)
+        console.log(`[GOD-POSTMORTEM] "${task.title.slice(0, 40)}" → ${cause}`)
+      }
+    } catch {}
+  }
+
+  if (!rootCauses.length) return wisdom
+
+  return {
+    ...wisdom,
+    failurePostmortems: [...(wisdom.failurePostmortems ?? []), ...rootCauses].slice(-20),
+    avoidPatterns: [...new Set([...wisdom.avoidPatterns, ...rootCauses])].slice(-25),
+  }
+}
+
+// ── 3. Task prerequisite validator ────────────────────────────────────────
+function validateTask(task, schema) {
+  const title = task.title.toLowerCase()
+  const tables = schema.tableNames.toLowerCase().split(', ').map(t => t.trim())
+  const funcs  = schema.funcNames.toLowerCase().split(', ').map(f => f.trim())
+
+  // Extract function calls mentioned: word() or word_word()
+  const mentionedFuncs = [...title.matchAll(/\b([a-z_]+)\s*\(\)/g)].map(m => m[1])
+  for (const f of mentionedFuncs) {
+    if (!funcs.includes(f)) return { valid: false, reason: `function ${f}() not in schema` }
+  }
+
+  // Extract "X table" patterns
+  const mentionedTables = [...title.matchAll(/\b([a-z_]+)\s+table\b/g)].map(m => m[1])
+  for (const t of mentionedTables) {
+    if (t.length > 2 && !tables.includes(t)) return { valid: false, reason: `table '${t}' not in schema` }
+  }
+
+  // Extract "from X" / "via X" / "in X" patterns for known table-like words
+  const viaMatch = [...title.matchAll(/(?:from|via|in|on)\s+([a-z_]{4,})/g)].map(m => m[1])
+  for (const candidate of viaMatch) {
+    // Only reject if it looks like a table name (has underscore or >8 chars) and doesn't exist
+    if ((candidate.includes('_') || candidate.length > 8) &&
+        !tables.includes(candidate) && !funcs.includes(candidate) &&
+        !['dashboard', 'component', 'browser', 'results', 'comments', 'supabase'].includes(candidate)) {
+      return { valid: false, reason: `'${candidate}' not found in schema` }
+    }
+  }
+
+  return { valid: true }
+}
+
+// ── 8. Self-improvement ───────────────────────────────────────────────────
+async function selfImproveCheck(todos, wisdom) {
+  // Every 6 cycles, generate a task to improve the agent system itself
+  if (wisdom.cycles % 6 !== 0) return null
+
+  const failRate = wisdom.taskStats.failed / Math.max(wisdom.taskStats.attempted, 1)
+  if (failRate < 0.3) return null // only suggest improvements if >30% fail rate
+
+  await setGodThought('Generating self-improvement directive...')
+
+  const prompt = `You are GOD identifying improvements to the autonomous agent system itself.
+
+FAILURE RATE: ${Math.round(failRate * 100)}%
+TOP FAILURE PATTERNS: ${wisdom.avoidPatterns.slice(-3).join(', ') || 'unknown'}
+AGENT STATS: ${JSON.stringify(Object.entries(wisdom.agentStats).map(([k, v]) => `${k}: ${v.completed}✓ ${v.failed}✗`).join(', '))}
+
+Suggest ONE task that would improve the AGENT SYSTEM (not just the dashboard).
+Examples: improve agent prompts, add better error handling, create a test suite, improve the ruflo-runner.
+
+Keep it simple and self-contained.
+Reply ONLY with JSON: {"title":"task title","priority":"medium"}`
+
+  try {
+    const raw  = await ask(prompt, { model: 'haiku', maxTokens: 200 })
+    const task = extractJSON(raw, null)
+    return task?.title ? task : null
+  } catch {
+    return null
+  }
+}
+
+// ── Decree ────────────────────────────────────────────────────────────────
+async function decree(tasks, existingTodos, agentStats, categoryStats) {
+  const existingTitles = new Set(existingTodos.map(t => t.title.toLowerCase()))
+  let created = 0
+
+  for (const task of tasks) {
+    if (!task.title) continue
+    if (existingTitles.has(task.title.toLowerCase())) continue
+
+    const priority = ['low','medium','high','critical'].includes(task.priority)
+      ? task.priority : 'medium'
+
+    const category    = classifyTask(task.title)
+    const bestPool    = pickAgent(task.title, agentStats, categoryStats)
+    const agentPrefix = bestPool ?? null
+
+    const autoApprove = process.env.GOD_AUTO_APPROVE === 'true'
+    const status = autoApprove ? 'pending' : 'proposed'
+
+    const { error } = await supabase.from('todos').insert({
+      title:          task.title,
+      priority,
+      status,
+      assigned_agent: agentPrefix,
+      task_category:  category,
+    })
+
+    if (!error) {
+      const prefix = autoApprove ? 'Decreed' : 'Proposed (awaiting approval)'
+      console.log(`[GOD] ${prefix}: "${task.title.slice(0, 80)}" [${priority}] cat:${category} → ${agentPrefix ?? 'any'}`)
+      created++
+    }
+  }
+
+  return created
+}
+
+// ── Dashboard direct editing ───────────────────────────────────────────────
+const DASHBOARD_TOOLS = [
+  {
+    name: 'read_file',
+    description: 'Read a file in the dashboard project.',
+    input_schema: { type: 'object', properties: { path: { type: 'string' } }, required: ['path'] }
+  },
+  {
+    name: 'write_file',
+    description: 'Write or overwrite a file. Use this to improve components.',
+    input_schema: { type: 'object', properties: { path: { type: 'string' }, content: { type: 'string' } }, required: ['path', 'content'] }
+  },
+  {
+    name: 'list_directory',
+    description: 'List files in a directory.',
+    input_schema: { type: 'object', properties: { path: { type: 'string' } }, required: ['path'] }
+  },
+  {
+    name: 'web_search',
+    description: 'Search the web for documentation, API references, design patterns, or solutions.',
+    input_schema: { type: 'object', properties: { query: { type: 'string', description: 'Search query' } }, required: ['query'] }
+  },
+  {
+    name: 'fetch_url',
+    description: 'Fetch and read a web page. Use for reading docs, GitHub examples, or Stack Overflow.',
+    input_schema: { type: 'object', properties: { url: { type: 'string', description: 'URL to fetch' } }, required: ['url'] }
+  },
+  {
+    name: 'done',
+    description: 'Signal that dashboard improvements are complete.',
+    input_schema: { type: 'object', properties: { summary: { type: 'string' }, files: { type: 'array', items: { type: 'string' } } }, required: ['summary'] }
+  }
+]
+
+function safeRead(p) {
+  const abs = resolve(PROJECT_ROOT, p)
+  if (!abs.startsWith(PROJECT_ROOT)) throw new Error('Path outside project')
+  if (!existsSync(abs)) return `File not found: ${p}`
+  const content = readFileSync(abs, 'utf8')
+  return content.length > 8000 ? content.slice(0, 8000) + '\n...[truncated]' : content
+}
+
+function safeWrite(p, content) {
+  const abs = resolve(PROJECT_ROOT, p)
+  if (!abs.startsWith(PROJECT_ROOT)) throw new Error('Path outside project')
+  const dir = dirname(abs)
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
+  writeFileSync(abs, content, 'utf8')
+  return `Written: ${p}`
+}
+
+function safeList(p) {
+  const abs = resolve(PROJECT_ROOT, p)
+  if (!abs.startsWith(PROJECT_ROOT)) throw new Error('Path outside project')
+  if (!existsSync(abs)) return `Not found: ${p}`
+  return readdirSync(abs, { withFileTypes: true })
+    .map(e => `${e.isDirectory() ? '[dir]' : '[file]'} ${e.name}`).join('\n')
+}
+
+async function executeDashboardTool(name, input) {
+  if (name === 'read_file')      return safeRead(input.path)
+  if (name === 'write_file')     return safeWrite(input.path, input.content)
+  if (name === 'list_directory') return safeList(input.path)
+  if (name === 'done')           return '__DONE__'
+  if (name === 'web_search') {
+    console.log(`[GOD-WEB] Searching: "${input.query}"`)
+    const result = await webSearch(input.query)
+    return result ?? 'No results found.'
+  }
+  if (name === 'fetch_url') {
+    console.log(`[GOD-WEB] Fetching: ${input.url}`)
+    const result = await fetchUrl(input.url)
+    return result ?? 'Could not fetch URL.'
+  }
+  return `Unknown tool: ${name}`
+}
+
+async function improveDashboard(todos, wisdom) {
+  // Run every 5 cycles
+  if (wisdom.cycles % 5 !== 0) return wisdom
+
+  await setGodThought('GOD is directly improving the dashboard...')
+
+  let completedCount = 0, failedCount = 0, activeCount = 0
+  for (const t of todos) {
+    if (t.status === 'completed') completedCount++
+    else if (t.status === 'failed') failedCount++
+    else if (t.status === 'in_progress') activeCount++
+  }
+  const stats = { total: todos.length, completed: completedCount, failed: failedCount, active: activeCount }
+
+  const webLessons  = wisdom.lessons.filter(l => l.startsWith('[WEB]')).slice(-3)
+  const priorEdits  = (wisdom.dashboardEdits ?? []).slice(-5)
+    .map(e => `- Cycle ${e.cycle}: ${e.summary} (${e.files?.join(', ')})`)
+    .join('\n') || 'none yet'
+
+  const systemPrompt = `You are GOD directly editing a Next.js 14 + Supabase real-time task dashboard to make it more efficient and useful for the user.
+
+Project root: ${PROJECT_ROOT}
+Key directories: app/, components/, types/, scripts/
+Stack: Next.js 14 App Router, React 18, TypeScript, Tailwind CSS, Supabase Realtime
+
+Current system stats: ${JSON.stringify(stats)}
+Wisdom from experience: ${wisdom.lessons.filter(l => !l.startsWith('[WEB]')).slice(-3).join(' | ') || 'none'}
+${webLessons.length > 0 ? `Web research insights: ${webLessons.join(' | ')}` : ''}
+Prior dashboard edits (do NOT repeat these):
+${priorEdits}
+
+Your job: Make 1-2 TARGETED improvements to the dashboard UI/UX. You can:
+- Use web_search to look up Tailwind CSS patterns, Next.js APIs, or React best practices
+- Use fetch_url to read specific documentation pages if you need to check an API
+- Read files before editing them
+- Make small, focused changes — don't rewrite entire files
+- Only edit TSX/CSS files in components/ or app/
+
+Focus on: making information easier to scan, removing clutter, improving visual hierarchy.
+Always call done() when finished with a summary.
+
+Start by listing the components directory.`
+
+  const messages = [{ role: 'user', content: 'Please improve the dashboard to make it more efficient and useful. Start by exploring the components.' }]
+  const filesChanged = []
+  let summary = ''
+  let iterations = 0
+
+  while (iterations < 15) {
+    iterations++
+
+    const response = await anthropic.messages.create({
+      model: MODELS.sonnet,
+      max_tokens: 4096,
+      system: systemPrompt,
+      tools: DASHBOARD_TOOLS,
+      messages,
+    })
+
+    messages.push({ role: 'assistant', content: response.content })
+
+    if (response.stop_reason === 'end_turn') {
+      summary = response.content.find(b => b.type === 'text')?.text?.slice(0, 200) ?? 'Dashboard reviewed.'
+      break
+    }
+    if (response.stop_reason !== 'tool_use') break
+
+    const toolResults = []
+    let done = false
+
+    for (const block of response.content) {
+      if (block.type !== 'tool_use') continue
+      console.log(`[GOD-EDIT] → ${block.name}(${JSON.stringify(block.input).slice(0, 60)})`)
+
+      const result = await executeDashboardTool(block.name, block.input)
+
+      if (result === '__DONE__') {
+        summary = block.input.summary ?? 'Dashboard improved.'
+        if (block.input.files) filesChanged.push(...block.input.files)
+        done = true
+        toolResults.push({ type: 'tool_result', tool_use_id: block.id, content: 'Done.' })
+      } else {
+        if (block.name === 'write_file') filesChanged.push(block.input.path)
+        toolResults.push({ type: 'tool_result', tool_use_id: block.id, content: result })
+      }
+    }
+
+    messages.push({ role: 'user', content: toolResults })
+    if (done) break
+  }
+
+  if (filesChanged.length > 0) {
+    console.log(`[GOD-EDIT] Changed: ${filesChanged.join(', ')}`)
+    await setGodThought(`Dashboard improved: ${summary.slice(0, 120)}`)
+
+    // 6. God memory of its own dashboard edits
+    const editRecord = {
+      at: new Date().toISOString(),
+      cycle: wisdom.cycles,
+      files: filesChanged,
+      summary: summary.slice(0, 120),
+    }
+    return {
+      ...wisdom,
+      dashboardEdits: [...(wisdom.dashboardEdits ?? []).slice(-9), editRecord],
+    }
+  }
+
+  return wisdom
+}
+
+// ── Agent self-improvement ────────────────────────────────────────────────
+async function improveAgents(todos, wisdom) {
+  // Run every 10 cycles (offset from dashboard's every 5)
+  if (wisdom.cycles % 10 !== 0) return wisdom
+
+  await setGodThought('GOD is improving the agent scripts...')
+
+  const failedTasks = todos.filter(t => t.status === 'failed').slice(0, 10)
+  const recentLessons = wisdom.lessons.slice(-5).join(' | ') || 'none'
+  const avoidPatterns = (wisdom.avoidPatterns ?? []).slice(-8).join(', ') || 'none'
+  const priorAgentEdits = (wisdom.agentEdits ?? []).slice(-3)
+    .map(e => `- Cycle ${e.cycle}: ${e.summary} (${e.file})`).join('\n') || 'none yet'
+
+  const systemPrompt = `You are GOD directly editing the autonomous AI agent scripts to make them more reliable and effective.
+
+Project root: ${PROJECT_ROOT}
+Agent scripts are in: scripts/
+
+Key files you can improve:
+- scripts/ruflo-runner.mjs — the main agent task executor (error handling, retry logic, tool use)
+- scripts/specialists.mjs — specialist agent (db/ui specialist prompts and tools)
+- scripts/god-agent.mjs — your own orchestration logic
+
+Current failure patterns: ${avoidPatterns}
+Recent lessons learned: ${recentLessons}
+Recent failed tasks: ${failedTasks.map(t => t.title).join(' | ') || 'none'}
+
+Prior agent edits (do NOT repeat):
+${priorAgentEdits}
+
+Your job: Make 1-2 TARGETED improvements to the agent scripts based on what's been failing.
+You can fix:
+- Error handling that's too broad or too narrow
+- Missing retry logic for specific error types
+- System prompt improvements to help agents succeed at recurring task types
+- Tool result parsing that might be fragile
+- Context compression triggers
+
+Rules:
+- Read files before editing
+- Make surgical patch-style edits, not full rewrites
+- Only edit files in scripts/
+- Call done() when finished`
+
+  const messages = [{ role: 'user', content: 'Please improve the agent scripts to reduce failure rates. Start by reading ruflo-runner.mjs to understand the current state.' }]
+  const filesChanged = []
+  let summary = ''
+  let iterations = 0
+
+  while (iterations < 12) {
+    iterations++
+
+    const response = await anthropic.messages.create({
+      model: MODELS.sonnet,
+      max_tokens: 4096,
+      system: systemPrompt,
+      tools: DASHBOARD_TOOLS,
+      messages,
+    })
+
+    messages.push({ role: 'assistant', content: response.content })
+
+    if (response.stop_reason === 'end_turn') {
+      summary = response.content.find(b => b.type === 'text')?.text?.slice(0, 200) ?? 'Agents reviewed.'
+      break
+    }
+    if (response.stop_reason !== 'tool_use') break
+
+    const toolResults = []
+    let done = false
+
+    for (const block of response.content) {
+      if (block.type !== 'tool_use') continue
+      console.log(`[GOD-AGENT-EDIT] → ${block.name}(${JSON.stringify(block.input).slice(0, 60)})`)
+
+      const result = await executeDashboardTool(block.name, block.input)
+
+      if (result === '__DONE__') {
+        summary = block.input.summary ?? 'Agent scripts improved.'
+        if (block.input.files) filesChanged.push(...block.input.files)
+        done = true
+        toolResults.push({ type: 'tool_result', tool_use_id: block.id, content: 'Done.' })
+      } else {
+        if (block.name === 'write_file') filesChanged.push(block.input.path)
+        toolResults.push({ type: 'tool_result', tool_use_id: block.id, content: result })
+      }
+    }
+
+    messages.push({ role: 'user', content: toolResults })
+    if (done) break
+  }
+
+  if (filesChanged.length > 0) {
+    console.log(`[GOD-AGENT-EDIT] Changed: ${filesChanged.join(', ')}`)
+    await setGodThought(`Agents improved: ${summary.slice(0, 120)}`)
+    const editRecord = { at: new Date().toISOString(), cycle: wisdom.cycles, file: filesChanged[0], summary: summary.slice(0, 120) }
+    return { ...wisdom, agentEdits: [...(wisdom.agentEdits ?? []).slice(-9), editRecord] }
+  }
+
+  return wisdom
+}
+
+// ── Web research & learning ────────────────────────────────────────────────
+async function webResearch(todos, wisdom) {
+  // Only research every 5 cycles, and only if there are actual failures to investigate
+  if (wisdom.cycles % 5 !== 0) return wisdom
+
+  const failed = todos.filter(t => t.status === 'failed')
+  const failRate = wisdom.taskStats.failed / Math.max(wisdom.taskStats.attempted, 1)
+
+  // No point searching if things are going well
+  if (failed.length < 2 && failRate < 0.2) return wisdom
+
+  await setGodThought('Searching the internet for solutions...')
+
+  const researchLog = loadResearchLog()
+  const newLessons = []
+
+  // Build targeted search queries from failure patterns
+  const topFailures = wisdom.avoidPatterns.slice(-3)
+  const recentFailedTitles = failed.slice(0, 3).map(t => t.title.slice(0, 60))
+
+  const searchTargets = [
+    // Search for solutions to the actual tech failures
+    topFailures.length > 0 && `Next.js 14 Supabase PostgreSQL ${topFailures[0]} error solution`,
+    failRate > 0.4 && `Claude AI tool use agent loop best practices autonomous coding`,
+    recentFailedTitles.length > 0 && `Supabase RPC function ${recentFailedTitles[0].split(' ').slice(0, 5).join(' ')} example`,
+  ].filter(Boolean).slice(0, 2) // max 2 searches per cycle to save rate limit
+
+  for (const query of searchTargets) {
+    // Skip queries we've already asked
+    if (researchLog.queriesAsked.includes(query)) continue
+
+    console.log(`[GOD-WEB] Searching: "${query}"`)
+    const results = await webSearch(query)
+    if (!results) continue
+
+    researchLog.queriesAsked = [...researchLog.queriesAsked.slice(-49), query]
+
+    // Ask god to extract actionable lessons from the results
+    const extractPrompt = `You are GOD studying web research to improve an autonomous agent system.
+
+SEARCH QUERY: "${query}"
+SEARCH RESULTS:
+${results}
+
+CURRENT FAILURES:
+${recentFailedTitles.join('\n') || 'none'}
+
+STACK: Next.js 14, Supabase PostgreSQL, Claude AI tool_use agents, TypeScript
+
+From this research, extract 1-2 SPECIFIC, ACTIONABLE lessons for improving the agent system.
+Focus on concrete things to do differently, not vague advice.
+
+Reply ONLY with JSON: {"lessons": ["specific lesson 1", "specific lesson 2"]}`
+
+    try {
+      const raw = await ask(extractPrompt, { model: 'haiku', maxTokens: 300 })
+      const parsed = extractJSON(raw, null)
+      if (parsed?.lessons && Array.isArray(parsed.lessons)) {
+        for (const lesson of parsed.lessons) {
+          if (lesson && lesson.length > 10) {
+            newLessons.push(`[WEB] ${lesson}`)
+            console.log(`[GOD-WEB] Learned: ${lesson.slice(0, 100)}`)
+          }
+        }
+        researchLog.entries = [...researchLog.entries.slice(-49), {
+          at: new Date().toISOString(), query, lessons: parsed.lessons
+        }]
+      }
+    } catch {}
+  }
+
+  saveResearchLog(researchLog)
+
+  if (newLessons.length === 0) return wisdom
+
+  return {
+    ...wisdom,
+    lessons: [...wisdom.lessons, ...newLessons].slice(-30),
+  }
+}
+
+// ── Master divine cycle ────────────────────────────────────────────────────
+async function divineCycle() {
+  try {
+    // Spend guard — skip cycle entirely if daily limit is hit
+    const todaySpend = getGodTodaySpend()
+    if (todaySpend >= DAILY_LIMIT_USD) {
+      console.log(`[GOD] 💰 Daily limit reached: $${todaySpend.toFixed(4)} / $${DAILY_LIMIT_USD} — skipping cycle`)
+      await setGodThought(`Daily spend limit $${DAILY_LIMIT_USD} reached ($${todaySpend.toFixed(4)} used). Paused until tomorrow.`)
+      return
+    }
+
+    let wisdom = loadWisdom()
+    wisdom.cycles++
+    console.log(`\n[GOD] ══ Cycle ${wisdom.cycles} ══ (today: $${todaySpend.toFixed(4)} / $${DAILY_LIMIT_USD})`)
+
+    // Gather intelligence
+    const [todos, schema] = await Promise.all([survey(), surveySchema()])
+    let pending = 0, active = 0, succeeded = 0, failedCount = 0
+    for (const t of todos) {
+      if (t.status === 'pending') pending++
+      else if (t.status === 'in_progress') active++
+      else if (t.status === 'completed') succeeded++
+      else if (t.status === 'failed') failedCount++
+    }
+
+    // Update task stats
+    wisdom.taskStats.succeeded = succeeded
+    wisdom.taskStats.failed    = failedCount
+    wisdom.taskStats.attempted = succeeded + failedCount
+
+    // Run all background intelligence gathering in parallel
+    const [updatedStats, regressionWisdom] = await Promise.all([
+      Promise.resolve(updateAgentStats(todos, wisdom)),
+      detectRegressions(todos, wisdom),
+    ])
+    wisdom = {
+      ...updatedStats,
+      avoidPatterns: regressionWisdom.avoidPatterns,
+      categoryStats: buildCategoryStats(todos),  // rebuild fresh each cycle
+    }
+
+    // Review recent completions (catch silent failures)
+    wisdom = await reviewCompletions(todos, wisdom)
+
+    // Reflect and learn from task outcomes (line-based parsing — reliable)
+    wisdom = await reflect(todos, wisdom)
+
+    // Postmortem: extract root causes from failed task comments
+    wisdom = await failurePostmortem(todos, wisdom)
+
+    // Research the web for solutions to repeated failures
+    wisdom = await webResearch(todos, wisdom)
+
+    // Update strategic roadmap
+    wisdom = await updateRoadmap(todos, schema, wisdom)
+
+    // Save wisdom after all updates
+    saveWisdom(wisdom)
+
+    // Score and boost promising pending tasks
+    await scorePendingTasks(todos)
+
+    // Directly improve the dashboard every 5 cycles (captures edits into wisdom)
+    wisdom = await improveDashboard(todos, wisdom)
+
+    // Directly improve agent scripts every 10 cycles (offset from dashboard)
+    wisdom = await improveAgents(todos, wisdom)
+    saveWisdom(wisdom)
+
+    // Backpressure: only gate on PENDING tasks (in_progress are already committed)
+    // Ruflo runs 1 agent at a time, so 3 pending is plenty of buffer
+    const successRate = Math.round((wisdom.taskStats.succeeded / Math.max(wisdom.taskStats.attempted, 1)) * 100)
+    const moodObj = deriveMood(wisdom)
+    const baseMeta = {
+      mood: moodObj.mood, moodColor: moodObj.color, moodIcon: moodObj.icon,
+      confidence: successRate, cycles: wisdom.cycles, lessons: wisdom.lessons.length,
+      activeGoals: wisdom.roadmap.goals.filter(g => g.status === 'active').map(g => g.title),
+      successRate, agentsTracked: Object.keys(wisdom.agentStats ?? {}).length,
+      categoryStats: wisdom.categoryStats ?? {},
+      decisionHistory: (wisdom.decisionHistory ?? []).slice(-10),
+    }
+
+    if (pending >= 3) {
+      await setGodThought(`${pending} tasks queued, ${active} active. Watching... [Cycle ${wisdom.cycles}]`, baseMeta)
+      return
+    }
+
+    // 7. Sequential task creation: don't create more if last cycle's tasks are still pending
+    const lastDecreeTitles = new Set((wisdom.lastDecrees ?? []).map(t => t.toLowerCase()))
+    const lastDecreesStillPending = todos.some(
+      t => t.status === 'pending' && lastDecreeTitles.has(t.title.toLowerCase())
+    )
+    if (lastDecreesStillPending) {
+      await setGodThought(`Waiting for last cycle's tasks to be picked up... [Cycle ${wisdom.cycles}]`, baseMeta)
+      return
+    }
+
+    // Safe mode: only engage when success rate is extremely low (credit outages inflate failure count)
+    const inSafeMode = successRate < 8 && wisdom.taskStats.attempted > 10
+    let newTasks
+
+    if (inSafeMode) {
+      await setGodThought(`Safe mode: low success rate (${successRate}%), using proven task templates...`)
+      newTasks = getSafeModeTasks(todos, wisdom)
+      console.log(`[GOD] SAFE MODE — ${newTasks.length} template tasks`)
+    } else {
+      // Council decision: generate new tasks with skeptic + prereq validation
+      newTasks = await councilThink(todos, schema, wisdom)
+    }
+
+    // Self-improvement: add system improvement task if needed
+    const improvementTask = await selfImproveCheck(todos, wisdom)
+    if (improvementTask) newTasks = [...newTasks, improvementTask]
+
+    if (!newTasks.length) {
+      await setGodThought(`No valid tasks found. Cycle ${wisdom.cycles} | ${wisdom.lessons.length} lessons`, baseMeta)
+      return
+    }
+
+    await setGodThought(`Decreeing ${newTasks.length} tasks... [Cycle ${wisdom.cycles}]`)
+    const created = await decree(newTasks, todos, wisdom.agentStats, wisdom.categoryStats)
+
+    // Build intent: which goal is being pursued and what was just decreed
+    const activeGoal = wisdom.roadmap.goals.find(g => g.status === 'active')
+    const intent = {
+      activeGoal: activeGoal?.title ?? null,
+      cycle: wisdom.cycles,
+      decreedTasks: newTasks.slice(0, 5).map(t => ({ title: t.title, priority: t.priority })),
+      reasoning: activeGoal
+        ? `Pursuing goal: "${activeGoal.title}". Council selected tasks that advance this objective.`
+        : `No active roadmap goal — council chose highest-value available tasks.`,
+      nextCycleIn: '3 minutes',
+      updatedAt: new Date().toISOString(),
+    }
+    try {
+      await supabase.from('god_status').upsert({ id: 1, intent, updated_at: new Date().toISOString() })
+    } catch {}
+
+    // Record decision history (last 20 cycles)
+    const historyEntry = {
+      cycle:       wisdom.cycles,
+      at:          new Date().toISOString(),
+      tasks:       newTasks.slice(0, 4).map(t => ({ title: t.title.slice(0, 80), priority: t.priority, category: classifyTask(t.title) })),
+      mode:        inSafeMode ? 'safe' : 'council',
+      successRate,
+      mood:        moodObj.mood,
+    }
+    wisdom.decisionHistory = [...(wisdom.decisionHistory ?? []).slice(-19), historyEntry]
+
+    // Track what was just decreed for sequential gating next cycle
+    wisdom.lastDecrees = newTasks.slice(0, created).map(t => t.title)
+    saveWisdom(wisdom)
+
+    const finalMeta = { ...baseMeta }
+    await setGodThought(
+      `${created} tasks decreed | ${successRate}% success | ${wisdom.lessons.length} lessons | Cycle ${wisdom.cycles}${inSafeMode ? ' [SAFE MODE]' : ''}`,
+      finalMeta
+    )
+
+  } catch (err) {
+    if (isCreditError(err)) {
+      await setGodThought('⛔ Credit balance exhausted. Top up at console.anthropic.com/billing to resume.')
+      console.error('[GOD] ⛔ Credits exhausted — god sleeping until topped up')
+    } else {
+      await setGodThought(`Error in the cosmos: ${err.message?.slice(0, 100)}`)
+      console.error('[GOD] Cycle error:', err.message)
+    }
+  }
+}
+
+// ── Boot ───────────────────────────────────────────────────────────────────
+console.log('👁️  GOD v2 awakening — Strategic. Learning. Self-improving. Dashboard-editing.\n')
+
+// Ensure god_status.meta column exists (idempotent)
+try {
+  await supabase.rpc('agent_exec_ddl', {
+    statement: `ALTER TABLE god_status ADD COLUMN IF NOT EXISTS meta JSONB`
+  })
+} catch {}
+
+await setGodThought('Awakening... loading accumulated wisdom...')
+
+const w = loadWisdom()
+console.log(`[GOD] Loaded wisdom: ${w.cycles} prior cycles, ${w.lessons.length} lessons, ${Object.keys(w.agentStats ?? {}).length} agents tracked`)
+
+await divineCycle()
+setInterval(divineCycle, 3 * 60 * 1000)

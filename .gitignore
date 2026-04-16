@@ -1,0 +1,42 @@
+# env
+.env.local
+.env*.local
+
+# build
+.next/
+out/
+dist/
+build/
+
+# deps
+node_modules/
+
+# PM2
+.pm2/
+*.pid
+*.seed
+*.log.*
+
+# logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# editor
+.vscode/settings.json
+.idea/
+
+# agent runtime (mutable state, not code)
+scripts/agent-memory/
+scripts/god-wisdom.json.bak
+scripts/.god-state.json
+
+# secrets
+*.pem
+*.key
