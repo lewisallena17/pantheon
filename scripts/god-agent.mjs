@@ -20,6 +20,7 @@ import { readFileSync, writeFileSync, existsSync, readdirSync, mkdirSync } from 
 import { fileURLToPath } from 'node:url'
 import { dirname, join, resolve } from 'node:path'
 import { execSync } from 'node:child_process'
+import { notify, shouldNotify } from './lib-notify.mjs'
 
 const __dirname   = dirname(fileURLToPath(import.meta.url))
 const PROJECT_ROOT = resolve(__dirname, '..')
@@ -59,11 +60,49 @@ function getGodTodaySpend() {
   } catch { return 0 }
 }
 
+// Rate-of-spend over a rolling window. If God is burning money fast
+// (runaway loop, expensive tool use), pause before the daily cap is hit.
+function getRecentSpend(windowMin) {
+  try {
+    const log = JSON.parse(readFileSync(COST_LOG_PATH, 'utf8'))
+    const cutoff = Date.now() - windowMin * 60_000
+    return (log.sessions ?? [])
+      .filter(s => s.at && new Date(s.at).getTime() >= cutoff)
+      .reduce((sum, s) => sum + (s.cost ?? 0), 0)
+  } catch { return 0 }
+}
+
 function isCreditError(err) {
   return err.status === 400 && (
     err.message?.includes('credit balance') ||
     err.message?.includes('Your credit balance is too low')
   )
+}
+
+// ── Build/lint verification for God edits ───────────────────────────────────
+// Counts TypeScript errors; caller compares pre- vs post-edit to decide if
+// the edit introduced new breakage. This is more robust than "any errors = bad"
+// because the repo already has known pre-existing TS errors.
+function countTsErrors() {
+  try {
+    execSync('npx tsc --noEmit', { cwd: PROJECT_ROOT, stdio: 'pipe', timeout: 60_000 })
+    return { count: 0, sample: '' }
+  } catch (e) {
+    const stdout = e.stdout?.toString() ?? ''
+    const stderr = e.stderr?.toString() ?? ''
+    const combined = stdout + stderr
+    const count = (combined.match(/error TS/g) ?? []).length
+    return { count, sample: combined.split('\n').find(l => l.includes('error TS'))?.slice(0, 160) ?? '' }
+  }
+}
+
+function verifyCommit(baseline) {
+  const { count, sample } = countTsErrors()
+  if (count <= baseline) return { ok: true }
+  return {
+    ok: false,
+    reason: `TypeScript: ${count - baseline} new error${count - baseline > 1 ? 's' : ''} (was ${baseline}, now ${count}) — ${sample}`,
+  }
 }
 
 // ── Git auto-commit ────────────────────────────────────────────────────────
@@ -79,6 +118,9 @@ function hasGitRepo() { return gitExec('git rev-parse --is-inside-work-tree') ==
 
 async function autoCommit({ cycle, source, summary, files }) {
   if (!hasGitRepo()) return null
+
+  // Capture TypeScript error baseline BEFORE the edit lands in the index
+  const baseline = process.env.GOD_VERIFY !== 'false' ? countTsErrors().count : 0
 
   const branchBefore = gitExec('git rev-parse --abbrev-ref HEAD') ?? 'main'
   const useBranch = process.env.GOD_PR_MODE === 'true'
@@ -101,6 +143,18 @@ async function autoCommit({ cycle, source, summary, files }) {
   const safeSummary = summary.replace(/"/g, "'").slice(0, 72)
   gitExec(`git commit -m "${subjectPrefix} cycle ${cycle}: ${safeSummary}"`)
   const sha = gitExec('git rev-parse --short HEAD')
+
+  // ── Verification — revert if the edit broke the build ────────────────────
+  if (process.env.GOD_VERIFY !== 'false') {
+    const verifyResult = verifyCommit(baseline)
+    if (verifyResult && !verifyResult.ok) {
+      console.log(`[GOD-VERIFY] ${verifyResult.reason} — reverting ${sha}`)
+      gitExec(`git revert --no-edit ${sha}`)
+      const revertSha = gitExec('git rev-parse --short HEAD')
+      await notify('error', `God edit auto-reverted`, `Cycle ${cycle} (${source}): ${verifyResult.reason}\nReverted ${sha} → ${revertSha}`)
+      return { sha: revertSha, branch: targetBranch, reverted: true, reason: verifyResult.reason }
+    }
+  }
 
   // Push if remote + token configured
   let prUrl = null
@@ -378,6 +432,62 @@ function loadWisdom() {
 
 function saveWisdom(w) {
   try { writeFileSync(WISDOM_PATH, JSON.stringify(w, null, 2), 'utf8') } catch {}
+}
+
+// ── Memory dedup ────────────────────────────────────────────────────────────
+// Lessons pile up as near-duplicates (same idea worded differently). This
+// compresses each lesson to a token set, then drops any lesson whose tokens
+// overlap >= 70% with a lesson already kept. Keeps the newest variant.
+function lessonTokens(s) {
+  return new Set(
+    String(s).toLowerCase()
+      .replace(/[^a-z0-9\s]/g, ' ')
+      .split(/\s+/)
+      .filter(w => w.length >= 4)
+      .filter(w => !STOP_WORDS.has(w))
+  )
+}
+const STOP_WORDS = new Set([
+  'this','that','with','from','have','been','were','they','their','there',
+  'will','would','about','which','your','when','what','then','than','some',
+  'task','tasks','agent','agents','make','sure','should','just','like',
+])
+
+function jaccard(a, b) {
+  if (a.size === 0 || b.size === 0) return 0
+  let inter = 0
+  for (const t of a) if (b.has(t)) inter++
+  return inter / (a.size + b.size - inter)
+}
+
+function dedupLessons(lessons, threshold = 0.7) {
+  const kept = []
+  const keptTokens = []
+  // Walk newest-first so we keep the most recent phrasing
+  for (let i = lessons.length - 1; i >= 0; i--) {
+    const lesson = lessons[i]
+    const toks = lessonTokens(lesson)
+    const isDup = keptTokens.some(kt => jaccard(kt, toks) >= threshold)
+    if (!isDup) {
+      kept.unshift(lesson)
+      keptTokens.unshift(toks)
+    }
+  }
+  return kept
+}
+
+function pruneWisdom(w) {
+  const beforeL = (w.lessons ?? []).length
+  const beforeA = (w.avoidPatterns ?? []).length
+  const beforeP = (w.patterns ?? []).length
+
+  w.lessons       = dedupLessons(w.lessons ?? [])
+  w.avoidPatterns = dedupLessons(w.avoidPatterns ?? [], 0.6)
+  w.patterns      = dedupLessons(w.patterns ?? [], 0.6)
+
+  const saved = (beforeL - w.lessons.length) + (beforeA - w.avoidPatterns.length) + (beforeP - w.patterns.length)
+  if (saved > 0) console.log(`[GOD-MEMORY] Deduped: -${saved} entries (lessons ${beforeL}→${w.lessons.length}, avoid ${beforeA}→${w.avoidPatterns.length}, patterns ${beforeP}→${w.patterns.length})`)
+  return w
 }
 
 // ── Survey ────────────────────────────────────────────────────────────────
@@ -1325,11 +1435,33 @@ async function divineCycle() {
     if (todaySpend >= DAILY_LIMIT_USD) {
       console.log(`[GOD] 💰 Daily limit reached: $${todaySpend.toFixed(4)} / $${DAILY_LIMIT_USD} — skipping cycle`)
       await setGodThought(`Daily spend limit $${DAILY_LIMIT_USD} reached ($${todaySpend.toFixed(4)} used). Paused until tomorrow.`)
+      if (shouldNotify('daily-limit', 60 * 12)) {
+        await notify('warn', 'God paused — daily spend cap hit', `$${todaySpend.toFixed(4)} / $${DAILY_LIMIT_USD}. Resumes tomorrow.`)
+      }
+      return
+    }
+
+    // Rate-of-spend circuit breaker — pause if spending is accelerating
+    const RATE_WINDOW_MIN = Number(process.env.GOD_RATE_WINDOW_MIN ?? 10)
+    const RATE_CAP_USD    = Number(process.env.GOD_RATE_CAP_USD ?? 0.50)
+    const recentSpend = getRecentSpend(RATE_WINDOW_MIN)
+    if (recentSpend >= RATE_CAP_USD) {
+      const pauseMin = Number(process.env.GOD_RATE_PAUSE_MIN ?? 30)
+      console.log(`[GOD] 🛑 Spend circuit breaker: $${recentSpend.toFixed(4)} in last ${RATE_WINDOW_MIN}min — pausing ${pauseMin}min`)
+      await setGodThought(`Spend rate too high ($${recentSpend.toFixed(4)} in ${RATE_WINDOW_MIN}min). Cooling down ${pauseMin}min.`)
+      if (shouldNotify('rate-breaker', 30)) {
+        await notify('warn', 'God rate-limited by circuit breaker', `$${recentSpend.toFixed(4)} spent in last ${RATE_WINDOW_MIN}min (cap $${RATE_CAP_USD}). Pausing ${pauseMin}min.`)
+      }
+      await new Promise(r => setTimeout(r, pauseMin * 60_000))
       return
     }
 
     let wisdom = loadWisdom()
     wisdom.cycles++
+
+    // Prune duplicate lessons every 10 cycles — keeps memory lean
+    if (wisdom.cycles % 10 === 0) wisdom = pruneWisdom(wisdom)
+
     console.log(`\n[GOD] ══ Cycle ${wisdom.cycles} ══ (today: $${todaySpend.toFixed(4)} / $${DAILY_LIMIT_USD})`)
 
     // Gather intelligence
@@ -1480,9 +1612,15 @@ async function divineCycle() {
     if (isCreditError(err)) {
       await setGodThought('⛔ Credit balance exhausted. Top up at console.anthropic.com/billing to resume.')
       console.error('[GOD] ⛔ Credits exhausted — god sleeping until topped up')
+      if (shouldNotify('credit-exhausted', 60)) {
+        await notify('error', 'God paused: credits exhausted', 'Top up at console.anthropic.com/billing to resume.')
+      }
     } else {
       await setGodThought(`Error in the cosmos: ${err.message?.slice(0, 100)}`)
       console.error('[GOD] Cycle error:', err.message)
+      if (shouldNotify('cycle-error', 30)) {
+        await notify('error', 'God cycle error', err.message?.slice(0, 300) ?? 'unknown')
+      }
     }
   }
 }

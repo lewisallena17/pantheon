@@ -1,4 +1,4 @@
-import type { Todo, TodoStatus } from '@/types/todos'
+import type { Todo, TodoStatus, TaskCategory } from '@/types/todos'
 
 const STATUS_ORDER: TodoStatus[] = ['proposed', 'in_progress', 'pending', 'blocked', 'completed', 'failed']
 
@@ -12,26 +12,106 @@ const STAT_STYLES: Record<TodoStatus, { border: string; text: string; label: str
   vetoed:      { border: 'border-slate-700/40',  text: 'text-slate-600',  label: 'VETOED',    glow: '' },
 }
 
-// Failed pill gets extra intensity when the count is high
-function failedPillStyle(count: number): { border: string; text: string; glow: string } {
-  if (count >= 40) return {
-    border: 'border-red-500/80',
-    text:   'text-red-300',
-    glow:   'shadow-[0_0_20px_rgba(255,51,102,0.45)]',
+// ── Category failure breakdown ────────────────────────────────────────────────
+// Shown whenever there are ≥ 3 failed tasks. Breaks the failure mass down by
+// task_category so the operator can immediately see which work stream is on
+// fire — e.g. "db: 31 failed" is far more actionable than "48 failed total".
+
+const CAT_META: Record<TaskCategory, { label: string; icon: string; bar: string; text: string }> = {
+  db:       { label: 'DB',       icon: '🗄', bar: 'bg-blue-500',   text: 'text-blue-400'   },
+  ui:       { label: 'UI',       icon: '🖥', bar: 'bg-purple-500', text: 'text-purple-400' },
+  infra:    { label: 'INFRA',    icon: '⚙', bar: 'bg-orange-500', text: 'text-orange-400' },
+  analysis: { label: 'ANALYSIS', icon: '📊', bar: 'bg-teal-500',   text: 'text-teal-400'   },
+  other:    { label: 'OTHER',    icon: '◈',  bar: 'bg-slate-500',  text: 'text-slate-400'  },
+}
+
+function FailureCategoryBreakdown({ todos }: { todos: Todo[] }) {
+  const failed = todos.filter(t => t.status === 'failed')
+  if (failed.length < 3) return null
+
+  // Build per-category failure + success counts
+  const catFailed  = new Map<TaskCategory, number>()
+  const catTotal   = new Map<TaskCategory, number>()
+
+  for (const t of todos) {
+    const cat = t.task_category ?? 'other'
+    catTotal.set(cat, (catTotal.get(cat) ?? 0) + 1)
+    if (t.status === 'failed') catFailed.set(cat, (catFailed.get(cat) ?? 0) + 1)
   }
-  if (count >= 20) return {
-    border: 'border-red-500/60',
-    text:   'text-red-400',
-    glow:   'shadow-[0_0_14px_rgba(255,51,102,0.30)]',
-  }
-  return STAT_STYLES.failed
+
+  // Only show categories that actually have failures, sorted worst-first
+  const cats = (Object.keys(CAT_META) as TaskCategory[])
+    .filter(c => (catFailed.get(c) ?? 0) > 0)
+    .sort((a, b) => (catFailed.get(b) ?? 0) - (catFailed.get(a) ?? 0))
+
+  if (cats.length === 0) return null
+
+  const maxFailed = catFailed.get(cats[0]) ?? 1
+
+  return (
+    <div className="space-y-1.5">
+      {/* Section label */}
+      <div className="flex items-center gap-2">
+        <span className="text-[9px] font-mono tracking-[0.2em] text-slate-700 uppercase">
+          FAILURE TRIAGE
+        </span>
+        <div className="flex-1 h-px bg-red-900/20" />
+        <span className="text-[9px] font-mono text-red-800">{failed.length} total failed</span>
+      </div>
+
+      {/* Per-category rows */}
+      <div className="space-y-1">
+        {cats.map(cat => {
+          const f     = catFailed.get(cat) ?? 0
+          const tot   = catTotal.get(cat) ?? 0
+          const pct   = Math.round((f / tot) * 100)
+          const barW  = Math.round((f / maxFailed) * 100)
+          const meta  = CAT_META[cat]
+
+          // Severity: >80% fail rate = critical styling
+          const isCatCritical = pct >= 80
+          const barCls = isCatCritical ? 'bg-red-500' : meta.bar
+
+          return (
+            <div key={cat} className="flex items-center gap-2 group">
+              {/* Category label */}
+              <span className={`text-[9px] font-mono w-16 flex-shrink-0 flex items-center gap-1 ${
+                isCatCritical ? 'text-red-400' : meta.text
+              }`}>
+                <span>{meta.icon}</span>
+                <span>{meta.label}</span>
+              </span>
+
+              {/* Mini bar */}
+              <div className="flex-1 h-1.5 rounded-full bg-slate-900 overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all duration-700 ${barCls} ${
+                    isCatCritical ? 'shadow-[0_0_4px_rgba(255,51,102,0.5)]' : ''
+                  }`}
+                  style={{ width: `${barW}%` }}
+                />
+              </div>
+
+              {/* Count + rate */}
+              <span className={`text-[9px] font-mono tabular-nums flex-shrink-0 w-20 text-right ${
+                isCatCritical ? 'text-red-400' : 'text-slate-600'
+              }`}>
+                <span className={isCatCritical ? 'text-red-300 font-bold' : 'text-slate-400'}>{f}</span>
+                <span className="text-slate-700">/{tot}</span>
+                <span className={`ml-1 ${isCatCritical ? 'text-red-500' : 'text-slate-700'}`}>
+                  ({pct}%)
+                </span>
+              </span>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
 }
 
 // ── System Health Bar ─────────────────────────────────────────────────────────
-// A stacked horizontal bar showing the full task funnel:
-//   [ACTIVE ░░░] [QUEUED ░░] [BLOCKED ░] [DONE ░░] [FAILED ████████]
-// Percentages are shown inline so the operator can see at a glance what share
-// of the pipeline each state occupies without reading individual pill numbers.
+// A stacked horizontal bar showing the full task funnel.
 function SystemHealthBar({ counts, total }: {
   counts: Partial<Record<TodoStatus, number>>
   total: number
@@ -75,7 +155,7 @@ function SystemHealthBar({ counts, total }: {
         })}
       </div>
 
-      {/* Legend row — compact, single line */}
+      {/* Legend row */}
       <div className="flex items-center gap-3 flex-wrap">
         {segments.map(({ status, bg }) => {
           const count = counts[status] ?? 0
@@ -96,10 +176,8 @@ function SystemHealthBar({ counts, total }: {
           )
         })}
 
-        {/* Spacer pushes health score right */}
         <span className="flex-1" />
 
-        {/* Win / fail rate summary — replaces the separate ml-auto pill */}
         {closed > 0 && (
           <span className={`text-[10px] font-mono ${healthColor} flex items-center gap-1.5`}
                 title={`${closed} closed: ${counts['completed'] ?? 0} succeeded, ${counts['failed'] ?? 0} failed`}>
@@ -133,7 +211,7 @@ export default function StatsBar({ todos }: { todos: Todo[] }) {
   const isCritical = closed >= 5 && failRate !== null && failRate >= 60
 
   return (
-    <div className="space-y-2 w-full">
+    <div className="space-y-3 w-full">
 
       {/* ── Critical failure alarm banner ── */}
       {isCritical && (
@@ -141,13 +219,8 @@ export default function StatsBar({ todos }: { todos: Todo[] }) {
           className="flex items-center gap-3 px-3 py-2 rounded border border-red-500/60 bg-red-950/30 font-mono"
           style={{ boxShadow: '0 0 24px rgba(255,51,102,0.18)' }}
         >
-          {/* Pulsing icon */}
           <span className="text-red-400 text-sm animate-pulse select-none">⚠</span>
-
-          {/* Main message */}
-          <span className="text-xs text-red-300 tracking-widest font-bold uppercase">
-            System Distress
-          </span>
+          <span className="text-xs text-red-300 tracking-widest font-bold uppercase">System Distress</span>
           <span className="text-xs text-red-500 tracking-wide">—</span>
           <span className="text-xs text-red-400 tracking-wide">
             <span className="font-bold text-red-300">{failRate}%</span> failure rate
@@ -157,7 +230,6 @@ export default function StatsBar({ todos }: { todos: Todo[] }) {
             <span className="text-red-500">{closed}</span> closed tasks
           </span>
 
-          {/* Active-task counter */}
           {active > 0 && (
             <>
               <span className="text-red-800 mx-1">|</span>
@@ -167,14 +239,12 @@ export default function StatsBar({ todos }: { todos: Todo[] }) {
             </>
           )}
 
-          {/* Right-side animated bar representing fail rate */}
           <div className="flex-1 ml-2 h-1.5 rounded-full bg-slate-800 overflow-hidden hidden sm:block">
             <div
               className="h-full rounded-full transition-all duration-700"
               style={{
                 width: `${failRate}%`,
-                background: 'linear-gradient(90deg, #ff3366, #ff0022)',
-                boxShadow: '0 0 8px #ff336688',
+                background: 'linear-gradient(90deg, rgba(239,68,68,0.8), rgba(220,38,38,1))',
               }}
             />
           </div>
@@ -184,47 +254,13 @@ export default function StatsBar({ todos }: { todos: Todo[] }) {
       {/* ── System health funnel bar ── */}
       <SystemHealthBar counts={counts} total={total} />
 
-      {/* ── Pill row ── */}
-      <div className="flex gap-2 flex-wrap items-center">
-        {/* Per-status pills */}
-        {STATUS_ORDER.map(status => {
-          const count = counts[status] ?? 0
-
-          const style =
-            status === 'failed'
-              ? failedPillStyle(count)
-              : STAT_STYLES[status]
-
-          const { border, text, glow } = style
-          const label = STAT_STYLES[status].label
-
-          return (
-            <div
-              key={status}
-              className={`flex items-center gap-2 px-3 py-2 rounded border bg-black/60 font-mono ${border} ${glow}`}
-            >
-              <span
-                className={`text-xl font-bold leading-none ${text}`}
-                style={{ fontFamily: 'Orbitron, monospace' }}
-              >
-                {String(count).padStart(2, '0')}
-              </span>
-              <span className={`text-xs tracking-widest ${text} opacity-70`}>{label}</span>
-            </div>
-          )
-        })}
-
-        {/* Total */}
-        <div className="flex items-center gap-2 px-3 py-2 rounded border border-cyan-500/20 bg-black/60 font-mono">
-          <span
-            className="text-xl font-bold leading-none text-cyan-500"
-            style={{ fontFamily: 'Orbitron, monospace' }}
-          >
-            {String(total).padStart(2, '0')}
-          </span>
-          <span className="text-xs tracking-widest text-cyan-600">TOTAL</span>
+      {/* ── Failure triage by category ── */}
+      {failed >= 3 && (
+        <div className="pt-1 border-t border-slate-800/50">
+          <FailureCategoryBreakdown todos={todos} />
         </div>
-      </div>
+      )}
+
     </div>
   )
 }

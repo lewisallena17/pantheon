@@ -30,6 +30,7 @@ import DevToLiveStats from './DevToLiveStats'
 import RevenueAutomation from './RevenueAutomation'
 import Collapsible from './Collapsible'
 import StickyHeader from './StickyHeader'
+import NotificationStatus from './NotificationStatus'
 
 interface Props {
   initialTodos: Todo[]
@@ -147,6 +148,8 @@ export default function DashboardShell({ initialTodos }: Props) {
           <div id={SECTION_IDS.cost}>
             <CostTracker />
           </div>
+
+          <NotificationStatus />
 
           <Collapsible id="overview-feed" title="Live Feed" defaultOpen={!compact}>
             <div id={SECTION_IDS.feed}>

@@ -177,9 +177,52 @@ supabase
   })
   .subscribe()
 
+// ── Stuck-task watchdog ───────────────────────────────────────────────────
+// Any task stuck in `in_progress` longer than the category's timeout gets
+// auto-failed so the slot frees up and the failure is learned from.
+const STUCK_TIMEOUT_MIN = Number(process.env.STUCK_TIMEOUT_MIN ?? 15)
+const CATEGORY_TIMEOUTS = {
+  db:       Number(process.env.STUCK_TIMEOUT_DB       ?? 20),
+  ui:       Number(process.env.STUCK_TIMEOUT_UI       ?? 25),
+  infra:    Number(process.env.STUCK_TIMEOUT_INFRA    ?? 15),
+  analysis: Number(process.env.STUCK_TIMEOUT_ANALYSIS ?? 15),
+  other:    STUCK_TIMEOUT_MIN,
+}
+
+async function reapStuckTasks() {
+  const { data, error } = await supabase
+    .from('todos')
+    .select('id, title, assigned_agent, task_category, updated_at, comments')
+    .eq('status', 'in_progress')
+    .limit(50)
+  if (error) { console.error('[watchdog] Poll error:', error.message); return }
+
+  const now = Date.now()
+  for (const t of data ?? []) {
+    const ageMin = (now - new Date(t.updated_at).getTime()) / 60_000
+    const timeout = CATEGORY_TIMEOUTS[t.task_category] ?? STUCK_TIMEOUT_MIN
+    if (ageMin < timeout) continue
+
+    console.log(`[watchdog] Reaping "${t.title.slice(0, 50)}" — stuck ${Math.round(ageMin)}min (>${timeout})`)
+    const comments = Array.isArray(t.comments) ? t.comments : []
+    comments.push({
+      agent: 'watchdog',
+      at:    new Date().toISOString(),
+      text:  `Auto-failed: stuck in_progress ${Math.round(ageMin)}min (timeout ${timeout}min for ${t.task_category})`,
+    })
+    await supabase
+      .from('todos')
+      .update({ status: 'failed', comments })
+      .eq('id', t.id)
+  }
+}
+
 // ── Startup ───────────────────────────────────────────────────────────────
 console.log('🤖 Orchestrator started — auto-assigning tasks 24/7')
+console.log(`   Watchdog: ${STUCK_TIMEOUT_MIN}min default · db=${CATEGORY_TIMEOUTS.db}min · ui=${CATEGORY_TIMEOUTS.ui}min`)
 console.log('   Watching for unassigned pending tasks...\n')
 
 dispatch()
-setInterval(dispatch, 20_000)  // poll every 20s as fallback
+setInterval(dispatch, 20_000)         // poll every 20s as fallback
+setInterval(reapStuckTasks, 60_000)   // reap stuck tasks every minute
+reapStuckTasks()

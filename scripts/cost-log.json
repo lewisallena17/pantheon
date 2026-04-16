@@ -1,11 +1,11 @@
 {
-  "total": 5.147000600000001,
+  "total": 5.299064600000001,
   "byAgent": {
     "ruflo-high": 0.5463967999999999,
     "ruflo-medium": 0.7549556,
     "ruflo-critical": 1.03509,
     "db-specialist": 1.850532,
-    "ui-specialist": 0.9600261999999998
+    "ui-specialist": 1.1120902
   },
   "sessions": [
     {
@@ -371,6 +371,13 @@
       "cost": 0.11779500000000001,
       "inputTokens": 32580,
       "outputTokens": 1337
+    },
+    {
+      "at": "2026-04-16T19:45:26.859Z",
+      "agent": "ui-specialist",
+      "cost": 0.15206399999999998,
+      "inputTokens": 47658,
+      "outputTokens": 606
     }
   ]
 }
