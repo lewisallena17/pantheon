@@ -23,6 +23,9 @@ import AgentControlPanel from './AgentControlPanel'
 import TaskInbox from './TaskInbox'
 import CommandPalette, { SECTION_IDS } from './CommandPalette'
 import LiveFeed from './LiveFeed'
+import GitHistory from './GitHistory'
+import CIStatus from './CIStatus'
+import ContributionGraph from './ContributionGraph'
 
 interface Props {
   initialTodos: Todo[]
@@ -65,9 +68,13 @@ export default function DashboardShell({ initialTodos }: Props) {
         <TaskInbox todos={todos} />
       </div>
 
+      <CIStatus />
+
       <div id={SECTION_IDS.controls}>
         <AgentControlPanel />
       </div>
+
+      <GitHistory />
 
       <div id={SECTION_IDS.god}>
         <GodView todos={todos} />
@@ -97,6 +104,8 @@ export default function DashboardShell({ initialTodos }: Props) {
         </div>
         <PriorityRadar todos={todos} />
       </div>
+
+      <ContributionGraph />
 
       <AgentXPBar todos={todos} />
       <AgentComparisonTable todos={todos} />

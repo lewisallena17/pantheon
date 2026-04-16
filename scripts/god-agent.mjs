@@ -19,6 +19,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { readFileSync, writeFileSync, existsSync, readdirSync, mkdirSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join, resolve } from 'node:path'
+import { execSync } from 'node:child_process'
 
 const __dirname   = dirname(fileURLToPath(import.meta.url))
 const PROJECT_ROOT = resolve(__dirname, '..')
@@ -63,6 +64,116 @@ function isCreditError(err) {
     err.message?.includes('credit balance') ||
     err.message?.includes('Your credit balance is too low')
   )
+}
+
+// ── Git auto-commit ────────────────────────────────────────────────────────
+function gitExec(cmd) {
+  try {
+    return execSync(cmd, { cwd: PROJECT_ROOT, stdio: ['ignore', 'pipe', 'pipe'] }).toString().trim()
+  } catch (e) {
+    return null
+  }
+}
+
+function hasGitRepo() { return gitExec('git rev-parse --is-inside-work-tree') === 'true' }
+
+async function autoCommit({ cycle, source, summary, files }) {
+  if (!hasGitRepo()) return null
+
+  const branchBefore = gitExec('git rev-parse --abbrev-ref HEAD') ?? 'main'
+  const useBranch = process.env.GOD_PR_MODE === 'true'
+  const targetBranch = useBranch ? `god/cycle-${cycle}-${source}` : branchBefore
+
+  if (useBranch) {
+    gitExec(`git checkout -b ${targetBranch}`)
+  }
+
+  const list = files.map(f => `"${f.replace(/"/g, '\\"')}"`).join(' ')
+  gitExec(`git add ${list}`)
+
+  const hasChanges = gitExec('git diff --cached --quiet; echo $?') !== '0'
+  if (!hasChanges) {
+    if (useBranch) gitExec(`git checkout ${branchBefore}`)
+    return null
+  }
+
+  const subjectPrefix = source === 'dashboard' ? '[god-edit]' : '[god-agent]'
+  const safeSummary = summary.replace(/"/g, "'").slice(0, 72)
+  gitExec(`git commit -m "${subjectPrefix} cycle ${cycle}: ${safeSummary}"`)
+  const sha = gitExec('git rev-parse --short HEAD')
+
+  // Push if remote + token configured
+  let prUrl = null
+  if (process.env.GITHUB_REPO_URL && process.env.GITHUB_TOKEN) {
+    const remote = gitExec('git remote get-url origin')
+    if (!remote) {
+      const authed = process.env.GITHUB_REPO_URL.replace('https://', `https://${process.env.GITHUB_TOKEN}@`)
+      gitExec(`git remote add origin ${authed}`)
+    }
+    gitExec(`git push origin ${targetBranch} --set-upstream`)
+
+    // Open PR if in PR mode
+    if (useBranch && process.env.GITHUB_REPO) {
+      prUrl = await openPullRequest({
+        repo:   process.env.GITHUB_REPO,
+        token:  process.env.GITHUB_TOKEN,
+        head:   targetBranch,
+        base:   branchBefore,
+        title:  `[god] cycle ${cycle}: ${safeSummary}`,
+        body:   buildPrBody({ cycle, source, files, summary, sha }),
+      })
+      if (prUrl) console.log(`[GOD-PR] ${prUrl}`)
+    }
+  }
+
+  if (useBranch) gitExec(`git checkout ${branchBefore}`)
+
+  console.log(`[GOD-GIT] ${sha} on ${targetBranch} — ${files.length} files`)
+  return { sha, branch: targetBranch, prUrl }
+}
+
+function buildPrBody({ cycle, source, files, summary, sha }) {
+  return [
+    `## Autonomous change by GOD agent`,
+    ``,
+    `- **Cycle:** ${cycle}`,
+    `- **Source:** ${source === 'dashboard' ? 'Dashboard self-improvement' : 'Agent script self-improvement'}`,
+    `- **Commit:** \`${sha}\``,
+    ``,
+    `### Summary`,
+    summary,
+    ``,
+    `### Files changed (${files.length})`,
+    files.map(f => `- \`${f}\``).join('\n'),
+    ``,
+    `---`,
+    `🤖 Opened by GOD agent. Review the diff before merging.`,
+  ].join('\n')
+}
+
+async function openPullRequest({ repo, token, head, base, title, body }) {
+  try {
+    const r = await fetch(`https://api.github.com/repos/${repo}/pulls`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept':        'application/vnd.github+json',
+        'User-Agent':    'god-agent',
+        'X-GitHub-Api-Version': '2022-11-28',
+        'Content-Type':  'application/json',
+      },
+      body: JSON.stringify({ title, body, head, base }),
+    })
+    if (!r.ok) {
+      console.log(`[GOD-PR] API failed ${r.status}: ${(await r.text()).slice(0, 120)}`)
+      return null
+    }
+    const j = await r.json()
+    return j.html_url ?? null
+  } catch (e) {
+    console.log(`[GOD-PR] Error: ${e.message}`)
+    return null
+  }
 }
 
 // ── Web helpers ────────────────────────────────────────────────────────────
@@ -986,12 +1097,20 @@ Start by listing the components directory.`
     console.log(`[GOD-EDIT] Changed: ${filesChanged.join(', ')}`)
     await setGodThought(`Dashboard improved: ${summary.slice(0, 120)}`)
 
-    // 6. God memory of its own dashboard edits
+    const commit = await autoCommit({
+      cycle: wisdom.cycles,
+      source: 'dashboard',
+      summary,
+      files: filesChanged,
+    })
+
     const editRecord = {
       at: new Date().toISOString(),
       cycle: wisdom.cycles,
       files: filesChanged,
       summary: summary.slice(0, 120),
+      sha: commit?.sha ?? null,
+      branch: commit?.branch ?? null,
     }
     return {
       ...wisdom,
@@ -1097,7 +1216,20 @@ Rules:
   if (filesChanged.length > 0) {
     console.log(`[GOD-AGENT-EDIT] Changed: ${filesChanged.join(', ')}`)
     await setGodThought(`Agents improved: ${summary.slice(0, 120)}`)
-    const editRecord = { at: new Date().toISOString(), cycle: wisdom.cycles, file: filesChanged[0], summary: summary.slice(0, 120) }
+    const commit = await autoCommit({
+      cycle: wisdom.cycles,
+      source: 'agent',
+      summary,
+      files: filesChanged,
+    })
+    const editRecord = {
+      at: new Date().toISOString(),
+      cycle: wisdom.cycles,
+      file: filesChanged[0],
+      summary: summary.slice(0, 120),
+      sha: commit?.sha ?? null,
+      branch: commit?.branch ?? null,
+    }
     return { ...wisdom, agentEdits: [...(wisdom.agentEdits ?? []).slice(-9), editRecord] }
   }
 

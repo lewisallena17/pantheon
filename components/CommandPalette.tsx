@@ -26,6 +26,8 @@ const SECTION_IDS = {
   analytics:'section-analytics',
   feed:     'section-feed',
   todos:    'section-todos',
+  git:      'section-git',
+  contrib:  'section-contrib',
 }
 
 export default function CommandPalette({ todos }: Props) {
@@ -108,6 +110,12 @@ export default function CommandPalette({ todos }: Props) {
         run: () => injectTask(query || 'Quick task from palette') },
       { id: 'a-inject-god', group: 'actions', label: `Focus God on: "${query || '…'}"`, hint: 'critical priority',
         run: () => injectTask(`[GOD FOCUS] ${query || 'Improve dashboard'}`, 'critical') },
+      { id: 'a-sync-gh', group: 'actions', label: 'Sync GitHub Issues into Inbox', hint: '→ /api/github/issues/sync',
+        run: async () => { await fetch('/api/github/issues/sync', { method: 'POST' }); setOpen(false) } },
+
+      // Nav (git views)
+      { id: 'nav-git',     group: 'nav', label: 'Jump to ▸ Git History',       run: () => scrollTo(SECTION_IDS.controls) },
+      { id: 'nav-contrib', group: 'nav', label: 'Jump to ▸ Contribution Graph', run: () => scrollTo(SECTION_IDS.analytics) },
     ]
 
     // Task entries from current todos

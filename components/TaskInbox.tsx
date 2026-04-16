@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { Todo } from '@/types/todos'
 
 interface Props {
@@ -15,6 +15,33 @@ const PRIORITY_COLOR: Record<string, string> = {
 }
 
 export default function TaskInbox({ todos }: Props) {
+  const [syncing, setSyncing] = useState(false)
+  const [syncMsg, setSyncMsg] = useState<string | null>(null)
+  const [ghConfigured, setGhConfigured] = useState(false)
+
+  useEffect(() => {
+    fetch('/api/github/issues/sync')
+      .then(r => r.json() as Promise<{ configured: boolean }>)
+      .then(j => setGhConfigured(j.configured))
+      .catch(() => {})
+  }, [])
+
+  async function syncGitHub() {
+    setSyncing(true)
+    setSyncMsg(null)
+    try {
+      const r = await fetch('/api/github/issues/sync', { method: 'POST' })
+      const j = await r.json() as { imported?: number; skipped?: number; total?: number; error?: string }
+      if (!r.ok) throw new Error(j.error ?? 'sync failed')
+      setSyncMsg(`✓ Imported ${j.imported ?? 0} · skipped ${j.skipped ?? 0} (already in inbox)`)
+    } catch (e) {
+      setSyncMsg(`✗ ${e instanceof Error ? e.message : 'sync failed'}`)
+    } finally {
+      setSyncing(false)
+      setTimeout(() => setSyncMsg(null), 5000)
+    }
+  }
+
   const proposed = useMemo(
     () => todos.filter(t => t.status === 'proposed').sort((a, b) =>
       b.created_at.localeCompare(a.created_at)),
@@ -60,23 +87,42 @@ export default function TaskInbox({ todos }: Props) {
             </span>
           )}
         </div>
-        {proposed.length > 0 && (
-          <div className="flex gap-2">
+        <div className="flex gap-2">
+          {ghConfigured && (
             <button
-              onClick={approveAll}
-              className="text-[10px] font-mono px-2 py-0.5 rounded border border-green-900/50 text-green-400 hover:bg-green-950/30"
+              onClick={syncGitHub}
+              disabled={syncing}
+              className="text-[10px] font-mono px-2 py-0.5 rounded border border-purple-900/50 text-purple-400 hover:bg-purple-950/30 disabled:opacity-40"
             >
-              ✓ APPROVE ALL
+              {syncing ? '… SYNCING' : '⬇ SYNC GITHUB ISSUES'}
             </button>
-            <button
-              onClick={vetoAll}
-              className="text-[10px] font-mono px-2 py-0.5 rounded border border-red-900/50 text-red-400 hover:bg-red-950/30"
-            >
-              ✗ VETO ALL
-            </button>
-          </div>
-        )}
+          )}
+          {proposed.length > 0 && (
+            <>
+              <button
+                onClick={approveAll}
+                className="text-[10px] font-mono px-2 py-0.5 rounded border border-green-900/50 text-green-400 hover:bg-green-950/30"
+              >
+                ✓ APPROVE ALL
+              </button>
+              <button
+                onClick={vetoAll}
+                className="text-[10px] font-mono px-2 py-0.5 rounded border border-red-900/50 text-red-400 hover:bg-red-950/30"
+              >
+                ✗ VETO ALL
+              </button>
+            </>
+          )}
+        </div>
       </div>
+
+      {syncMsg && (
+        <div className={`px-4 py-1.5 border-b border-slate-800/40 text-[10px] font-mono ${
+          syncMsg.startsWith('✓') ? 'text-green-400 bg-green-950/20' : 'text-red-400 bg-red-950/20'
+        }`}>
+          {syncMsg}
+        </div>
+      )}
 
       {proposed.length === 0 ? (
         <div className="px-4 py-6 text-center text-[11px] font-mono text-slate-600">
