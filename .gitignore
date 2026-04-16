@@ -37,6 +37,12 @@ scripts/agent-memory/
 scripts/god-wisdom.json.bak
 scripts/.god-state.json
 
+# marketplace artifacts (regeneratable + user-specific state)
+dist/listings/*/
+dist/listings/submissions.json
+dist/listings/manifest.json
+dist/*.zip
+
 # secrets
 *.pem
 *.key

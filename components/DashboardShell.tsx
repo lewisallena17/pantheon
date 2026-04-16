@@ -31,6 +31,8 @@ import RevenueAutomation from './RevenueAutomation'
 import Collapsible from './Collapsible'
 import StickyHeader from './StickyHeader'
 import NotificationStatus from './NotificationStatus'
+import CriticalAlertBanner from './CriticalAlertBanner'
+import MarketplaceListings from './MarketplaceListings'
 
 interface Props {
   initialTodos: Todo[]
@@ -104,6 +106,9 @@ export default function DashboardShell({ initialTodos }: Props) {
 
   return (
     <div className="space-y-2">
+      {/* ── Critical failure banner — renders only when fail rate ≥ 60% ── */}
+      <CriticalAlertBanner todos={todos} />
+
       <VictoryFlash todos={todos} />
       <CommandPalette todos={todos} />
 
@@ -222,6 +227,7 @@ export default function DashboardShell({ initialTodos }: Props) {
       {/* ── REVENUE TAB ──────────────────────────────────────────────── */}
       {tab === 'revenue' && (
         <div id={SECTION_IDS.revenue} className={gap}>
+          <MarketplaceListings />
           <RevenueTracker />
           <DevToLiveStats />
           <RevenueAutomation />
@@ -236,14 +242,6 @@ export default function DashboardShell({ initialTodos }: Props) {
           <CIStatus />
         </div>
       )}
-
-      <div className="flex items-center gap-3 pt-2">
-        <div className="h-px flex-1 bg-gradient-to-r from-cyan-900/30 to-transparent" />
-        <span className="text-[9px] font-mono text-slate-700 tracking-widest">
-          SYS.UPLINK · ⌘K commands · 1-5 switch tabs
-        </span>
-        <div className="h-px flex-1 bg-gradient-to-l from-cyan-900/30 to-transparent" />
-      </div>
     </div>
   )
 }
