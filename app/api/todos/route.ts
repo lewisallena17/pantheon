@@ -1,10 +1,10 @@
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { NextRequest, NextResponse } from 'next/server'
 import type { TodoPriority, TodoStatus } from '@/types/todos'
 
 // POST /api/todos — create a new todo
 export async function POST(req: NextRequest) {
-  const supabase = await createClient()
+  const supabase = createAdminClient()
 
   const body = await req.json() as {
     title: string
@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
 
 // PATCH /api/todos — update status (and optionally assigned_agent)
 export async function PATCH(req: NextRequest) {
-  const supabase = await createClient()
+  const supabase = createAdminClient()
 
   const body = await req.json() as {
     id: string
@@ -75,7 +75,7 @@ export async function PATCH(req: NextRequest) {
 
 // DELETE /api/todos?id=<uuid>
 export async function DELETE(req: NextRequest) {
-  const supabase = await createClient()
+  const supabase = createAdminClient()
   const id = req.nextUrl.searchParams.get('id')
 
   if (!id) {
