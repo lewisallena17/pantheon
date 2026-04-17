@@ -35,6 +35,8 @@ const VARS_TO_SYNC = [
   'DAILY_COST_LIMIT_USD',
   'MAX_TASK_COST_USD',
   'MAX_INPUT_TOKENS_PER_RUN',
+  'GITHUB_REPO',
+  'GITHUB_TOKEN',
 ]
 
 const apiBase = `https://api.vercel.com/v10/projects/${projectId}/env?teamId=${orgId}`
