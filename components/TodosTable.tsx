@@ -233,42 +233,96 @@ export default function TodosTable({ todos, setTodos, onStatusChange, onLogEntry
 
   useEffect(() => {
     const supabase = createClient()
-    const channel = supabase
-      .channel('todos-realtime')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'todos' }, (payload) => {
-        const newTodo = payload.new as Todo
-        setTodos(prev => [newTodo, ...prev])
-        flash(newTodo.id)
-        onLogEntry?.({ id: `${newTodo.id}-insert`, at: new Date(), agent: newTodo.assigned_agent, task: newTodo.title, event: 'created' })
-      })
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'todos' }, (payload) => {
-        const updated = payload.new as Todo
-        const prev    = payload.old as Partial<Todo>
-        setTodos(p => p.map(t => (t.id === updated.id ? updated : t)))
-        flash(updated.id)
-        if (prev.status !== updated.status) {
-          const event: LogEntry['event'] =
-            updated.status === 'in_progress' ? 'started' :
-            updated.status === 'completed'   ? (updated.is_boss ? 'boss_slain' : 'completed') :
-            updated.status === 'failed'      ? 'failed' :
-            updated.status === 'blocked'     ? 'blocked' : 'created'
-          onLogEntry?.({ id: `${updated.id}-${updated.updated_at}`, at: new Date(), agent: updated.assigned_agent, task: updated.title, event })
-        }
-      })
-      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'todos' }, (payload) => {
-        const deleted = payload.old as Pick<Todo, 'id'>
-        setTodos(prev => prev.filter(t => t.id !== deleted.id))
-      })
-      .subscribe(async (status) => {
-        onStatusChange(status as RealtimeStatus)
-        if (status === 'SUBSCRIBED') {
-          const { data } = await supabase.from('todos').select('*').order('created_at', { ascending: false })
-          if (data) setTodos(data)
-        }
-      })
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null
+    let stuckTimer:     ReturnType<typeof setTimeout> | null = null
+    let currentChannel: ReturnType<typeof supabase.channel> | null = null
+    let attempt = 0
+    let disposed = false
+
+    async function pollData() {
+      const { data } = await supabase.from('todos').select('*').order('created_at', { ascending: false })
+      if (data && !disposed) setTodos(data)
+    }
+
+    function connect() {
+      if (disposed) return
+      attempt++
+      onStatusChange('CONNECTING')
+
+      // Fresh channel id per attempt — avoids Supabase refusing to re-subscribe
+      // to an already-open channel name after a half-closed socket
+      const channelName = `todos-realtime-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
+
+      currentChannel = supabase
+        .channel(channelName)
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'todos' }, (payload) => {
+          const newTodo = payload.new as Todo
+          setTodos(prev => [newTodo, ...prev])
+          flash(newTodo.id)
+          onLogEntry?.({ id: `${newTodo.id}-insert`, at: new Date(), agent: newTodo.assigned_agent, task: newTodo.title, event: 'created' })
+        })
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'todos' }, (payload) => {
+          const updated = payload.new as Todo
+          const prev    = payload.old as Partial<Todo>
+          setTodos(p => p.map(t => (t.id === updated.id ? updated : t)))
+          flash(updated.id)
+          if (prev.status !== updated.status) {
+            const event: LogEntry['event'] =
+              updated.status === 'in_progress' ? 'started' :
+              updated.status === 'completed'   ? (updated.is_boss ? 'boss_slain' : 'completed') :
+              updated.status === 'failed'      ? 'failed' :
+              updated.status === 'blocked'     ? 'blocked' : 'created'
+            onLogEntry?.({ id: `${updated.id}-${updated.updated_at}`, at: new Date(), agent: updated.assigned_agent, task: updated.title, event })
+          }
+        })
+        .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'todos' }, (payload) => {
+          const deleted = payload.old as Pick<Todo, 'id'>
+          setTodos(prev => prev.filter(t => t.id !== deleted.id))
+        })
+        .subscribe(async (status) => {
+          if (disposed) return
+          onStatusChange(status as RealtimeStatus)
+
+          if (status === 'SUBSCRIBED') {
+            attempt = 0
+            if (stuckTimer) { clearTimeout(stuckTimer); stuckTimer = null }
+            await pollData()
+            return
+          }
+
+          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+            // Refresh data via REST so the UI stays current while realtime recovers
+            pollData().catch(() => {})
+            const delay = Math.min(30_000, 2_000 * Math.pow(2, Math.min(attempt, 5)))
+            if (reconnectTimer) clearTimeout(reconnectTimer)
+            reconnectTimer = setTimeout(() => {
+              if (currentChannel) { supabase.removeChannel(currentChannel); currentChannel = null }
+              connect()
+            }, delay)
+          }
+        })
+
+      // If we haven't reached SUBSCRIBED in 8s, tear down + retry
+      stuckTimer = setTimeout(() => {
+        if (disposed) return
+        pollData().catch(() => {})
+        if (currentChannel) { supabase.removeChannel(currentChannel); currentChannel = null }
+        connect()
+      }, 8_000)
+    }
+
+    connect()
+    // Initial data fetch too, so the table renders even before realtime subscribes
+    pollData().catch(() => {})
+
     return () => {
-      channel.unsubscribe()
-      supabase.removeChannel(channel)
+      disposed = true
+      if (reconnectTimer) clearTimeout(reconnectTimer)
+      if (stuckTimer)     clearTimeout(stuckTimer)
+      if (currentChannel) {
+        currentChannel.unsubscribe()
+        supabase.removeChannel(currentChannel)
+      }
       flashTimers.current.forEach(t => clearTimeout(t))
       flashTimers.current.clear()
       flashedIds.current.clear()
