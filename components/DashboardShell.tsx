@@ -33,6 +33,7 @@ import StickyHeader from './StickyHeader'
 import NotificationStatus from './NotificationStatus'
 import CriticalAlertBanner from './CriticalAlertBanner'
 import MarketplaceListings from './MarketplaceListings'
+import SubscribersPanel from './SubscribersPanel'
 
 interface Props {
   initialTodos: Todo[]
@@ -228,6 +229,7 @@ export default function DashboardShell({ initialTodos }: Props) {
       {tab === 'revenue' && (
         <div id={SECTION_IDS.revenue} className={gap}>
           <MarketplaceListings />
+          <SubscribersPanel />
           <RevenueTracker />
           <DevToLiveStats />
           <RevenueAutomation />
