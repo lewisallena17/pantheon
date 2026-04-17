@@ -1,9 +1,6 @@
 {
-  "cycles": 132,
+  "cycles": 135,
   "lessons": [
-    "Raw queries succeed; abstraction layers cause cascading failures.",
-    "Validation frameworks break what raw simplicity achieves easily.",
-    "Schema queries succeed; data extraction fails consistently",
     "Abstraction layers corrupt; raw simplicity prevails always",
     "Validation frameworks add failure points, remove none",
     "Information_schema queries beat direct table access always",
@@ -30,17 +27,12 @@
     "Schema introspection reliable; data access requires filtering",
     "Schema introspection succeeds; direct table access requires careful filtering",
     "tool_result validation and tool_use_id formatting are non-negotiable",
-    "Information_schema queries are reliable; prioritize them always"
+    "Information_schema queries are reliable; prioritize them always",
+    "Schema introspection via information_schema always succeeds reliably",
+    "Direct table SELECT queries fail without proper filtering layers",
+    "tool_result validation and tool_use_id formatting are non-negotiable requirements"
   ],
   "avoidPatterns": [
-    "! Query information_schema for todos and g → tool_result block had invalid tool_use_id",
-    "query information_schema.columns for todos table",
-    "select category, count(*) as total,",
-    "Never query data tables directly; routes to information_schema fail",
-    "Avoid constructed routing rules from unvalidated category data patterns",
-    "! Construct intelligent task routing rules → tool result block had invalid tool_use_id format",
-    "Avoid unvalidated tool_result blocks; parsing failures cascade upstream",
-    "Never query data directly; always use schema introspection first",
     "Avoid unvalidated tool_use_id formats in tool_result parsing",
     "! Construct intelligent task routing rules → tool_result block missing required field",
     "! Query information_schema.tables to verif → invalid tool_result block format with ctx-compress",
@@ -56,11 +48,17 @@
     "! Query information_schema.columns for god → tool result block missing required field",
     "! Construct intelligent task routing rules → \"tool_use_id mismatch in tool_result block\"",
     "! Query information_schema.tables to verif → invalid tool_result block format",
-    "! Query information_schema.columns for tod → malformed tool_result block format"
+    "! Query information_schema.columns for tod → malformed tool_result block format",
+    "query information_schema.columns for todos table",
+    "select category, count(*) as total,",
+    "Never query tables directly without schema validation first",
+    "Avoid tool_use_id format mismatches in tool_result blocks",
+    "! Query information_schema.columns for god → invalid tool_use_id format in tool_result block",
+    "! Construct intelligent task routing rules → invalid tool_result block format - missing tool_use_id match",
+    "! Query information_schema.tables to verif → tool result block had invalid tool_use_id format",
+    "! Query information_schema.columns for tod → malformed tool result block format"
   ],
   "successPatterns": [
-    "Execute schema queries via agent_exec_sql without validation layers",
-    "Query information_schema.columns and information_schema.tables for all DB inspection",
     "Use agent_exec_sql with metadata queries only, no data extraction",
     "Query information_schema.columns and information_schema.tables for all schema needs",
     "Use raw agent_exec_sql without validation wrappers or correction layers",
@@ -78,12 +76,14 @@
     "Validate tool_use_id format before processing results",
     "Use agent_exec_sql with information_schema for metadata",
     "Use information_schema.columns and information_schema.tables for all schema discovery",
-    "Implement tool_result block validation before executing downstream tasks"
+    "Implement tool_result block validation before executing downstream tasks",
+    "Use agent_exec_sql with information_schema.* for all schema discovery",
+    "Execute filtered SELECTs on todos/god_status with explicit WHERE clauses"
   ],
   "agentStats": {
     "ruflo-medium": {
       "completed": 170,
-      "failed": 758,
+      "failed": 767,
       "taskTypes": [
         "query god_status table",
         "search and rank",
@@ -99,8 +99,8 @@
       ]
     },
     "ruflo-high": {
-      "completed": 445,
-      "failed": 2242,
+      "completed": 448,
+      "failed": 2251,
       "taskTypes": [
         "implement caching layer",
         "implement request batching",
@@ -154,7 +154,7 @@
     },
     "ruflo-critical": {
       "completed": 16,
-      "failed": 642,
+      "failed": 645,
       "taskTypes": [
         "query traces table",
         "implement robust rpc",
@@ -211,8 +211,8 @@
       ]
     },
     "db-specialist": {
-      "completed": 557,
-      "failed": 2001,
+      "completed": 590,
+      "failed": 2100,
       "taskTypes": [
         "analyze god_status and",
         "query information_schema.tables and",
@@ -228,8 +228,8 @@
       ]
     },
     "ui-specialist": {
-      "completed": 64,
-      "failed": 354,
+      "completed": 67,
+      "failed": 375,
       "taskTypes": [
         "read components/statsbar.tsx and",
         "implement mandatory pre-flight",
@@ -389,7 +389,7 @@
     "succeeded": 13,
     "failed": 47
   },
-  "lastReflection": "2026-04-17T16:21:30.829Z",
+  "lastReflection": "2026-04-17T16:27:30.710Z",
   "lastRoadmapUpdate": "2026-04-16T19:17:00.518Z",
   "dashboardEdits": [
     {
@@ -447,13 +447,19 @@
         "C:\\Users\\LTAGB\\task-dashboard\\components\\DashboardShell.tsx"
       ],
       "summary": ""
+    },
+    {
+      "at": "2026-04-17T16:32:17.939Z",
+      "cycle": 135,
+      "files": [
+        "C:\\Users\\LTAGB\\task-dashboard\\components\\CriticalAlertBanner.tsx"
+      ],
+      "summary": "",
+      "sha": "ce6bfe0",
+      "branch": "main"
     }
   ],
   "failurePostmortems": [
-    "! Analyze db category success patterns via → tool_result block missing required fields",
-    "! Fetch db category todos via agent_exec_s → invalid tool_use_id format in tool_result block",
-    "! Execute SELECT COUNT(*) as total FROM to → tool_result block had invalid tool_use_id format",
-    "! Query information_schema for todos and g → tool_result block had invalid tool_use_id",
     "! Query information_schema.columns for god → tool result block format incorrect",
     "! Construct intelligent task routing rules → tool result block had invalid tool_use_id format",
     "! Query information_schema.tables to verif → malformed tool_result block with invalid tool_use_id",
@@ -469,7 +475,11 @@
     "! Query information_schema.columns for god → tool result block missing required field",
     "! Construct intelligent task routing rules → \"tool_use_id mismatch in tool_result block\"",
     "! Query information_schema.tables to verif → invalid tool_result block format",
-    "! Query information_schema.columns for tod → malformed tool_result block format"
+    "! Query information_schema.columns for tod → malformed tool_result block format",
+    "! Query information_schema.columns for god → invalid tool_use_id format in tool_result block",
+    "! Construct intelligent task routing rules → invalid tool_result block format - missing tool_use_id match",
+    "! Query information_schema.tables to verif → tool result block had invalid tool_use_id format",
+    "! Query information_schema.columns for tod → malformed tool result block format"
   ],
   "lastDecrees": [],
   "categoryStats": {
@@ -495,58 +505,6 @@
     }
   },
   "decisionHistory": [
-    {
-      "cycle": 103,
-      "at": "2026-04-16T18:49:59.805Z",
-      "tasks": [
-        {
-          "title": "Export complete todos table with all rows and columns via agent_exec_sql",
-          "priority": "high",
-          "category": "db"
-        },
-        {
-          "title": "Query god_status table for all rows and columns via agent_exec_sql",
-          "priority": "high",
-          "category": "db"
-        }
-      ],
-      "mode": "council",
-      "successRate": 22,
-      "mood": "SUFFERING"
-    },
-    {
-      "cycle": 104,
-      "at": "2026-04-16T18:53:05.819Z",
-      "tasks": [
-        {
-          "title": "Query todos table for all rows and columns via agent_exec_sql",
-          "priority": "high",
-          "category": "db"
-        }
-      ],
-      "mode": "council",
-      "successRate": 22,
-      "mood": "SUFFERING"
-    },
-    {
-      "cycle": 107,
-      "at": "2026-04-16T19:02:00.438Z",
-      "tasks": [
-        {
-          "title": "Execute information_schema.columns query for todos table via agent_exec_sql to c",
-          "priority": "high",
-          "category": "db"
-        },
-        {
-          "title": "Analyze db category success patterns (24% win rate across 46 tasks) to construct",
-          "priority": "high",
-          "category": "analysis"
-        }
-      ],
-      "mode": "council",
-      "successRate": 20,
-      "mood": "SUFFERING"
-    },
     {
       "cycle": 108,
       "at": "2026-04-16T19:05:15.860Z",
@@ -854,6 +812,68 @@
           "title": "Implement tool_result block validation layer with automatic format correction be",
           "priority": "critical",
           "category": "ui"
+        }
+      ],
+      "mode": "council",
+      "successRate": 22,
+      "mood": "SUFFERING"
+    },
+    {
+      "cycle": 133,
+      "at": "2026-04-17T16:24:38.834Z",
+      "tasks": [
+        {
+          "title": "Query information_schema.columns for todos and god_status table structure via ag",
+          "priority": "high",
+          "category": "db"
+        },
+        {
+          "title": "SELECT status counts for db category tasks from todos table via agent_exec_sql w",
+          "priority": "high",
+          "category": "db"
+        },
+        {
+          "title": "SELECT top performing filter patterns from todos WHERE category='db' GROUP BY st",
+          "priority": "high",
+          "category": "db"
+        },
+        {
+          "title": "Query god_status table for current routing and throughput metrics via agent_exec",
+          "priority": "high",
+          "category": "db"
+        }
+      ],
+      "mode": "council",
+      "successRate": 22,
+      "mood": "SUFFERING"
+    },
+    {
+      "cycle": 134,
+      "at": "2026-04-17T16:27:36.647Z",
+      "tasks": [
+        {
+          "title": "Execute SELECT status, COUNT(*) as count FROM todos GROUP BY status via agent_ex",
+          "priority": "critical",
+          "category": "db"
+        },
+        {
+          "title": "Execute SELECT category, COUNT(*) as count FROM god_status GROUP BY category via",
+          "priority": "critical",
+          "category": "db"
+        }
+      ],
+      "mode": "council",
+      "successRate": 22,
+      "mood": "SUFFERING"
+    },
+    {
+      "cycle": 135,
+      "at": "2026-04-17T16:32:26.440Z",
+      "tasks": [
+        {
+          "title": "Execute information_schema.columns query for todos table via agent_exec_sql",
+          "priority": "high",
+          "category": "db"
         }
       ],
       "mode": "council",
