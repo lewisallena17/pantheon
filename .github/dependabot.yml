@@ -1,0 +1,29 @@
+# Auto-PR dependency updates. Batches minor + patch updates weekly,
+# flags majors separately so they don't auto-merge.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+    ignore:
+      # Pin Next.js major (14.x) until you're ready for the upgrade pass
+      - dependency-name: next
+        update-types: [version-update:semver-major]
+    labels: [dependencies]
+    commit-message:
+      prefix: chore
+      include: scope
+
+  # Keep GitHub Actions runners current
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    labels: [dependencies, ci]

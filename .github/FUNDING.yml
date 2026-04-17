@@ -1,0 +1,5 @@
+# Shows a Sponsor ❤ button at the top of your repo.
+# Replace YOUR-USERNAME after you enable Sponsors at:
+# https://github.com/sponsors/accounts
+github: [YOUR-USERNAME]
+# custom: ['https://lewisallena17.gumroad.com']

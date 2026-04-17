@@ -1,8 +1,6 @@
 {
-  "cycles": 163,
+  "cycles": 165,
   "lessons": [
-    "tool_result validation and UUID formatting are critical",
-    "Schema introspection reliable; data access requires filtering",
     "Schema introspection succeeds; direct table access requires careful filtering",
     "Information_schema queries are reliable; prioritize them always",
     "Direct table SELECT queries fail without proper filtering layers",
@@ -29,11 +27,12 @@
     "SELECT queries succeed; complex routing logic consistently fails",
     "Schema introspection must precede all data queries without fail",
     "SELECT queries work; complex routing logic consistently fails",
-    "tool_result validation without UUID checks succeeds reliably"
+    "tool_result validation without UUID checks succeeds reliably",
+    "Simple SELECT queries consistently succeed; complex routing fails",
+    "Schema introspection must precede data queries without exception",
+    "tool_result validation works without UUID format enforcement"
   ],
   "avoidPatterns": [
-    "Never implement UUID validation in tool_result parsing",
-    "Don't attempt task routing before schema mapping",
     "query information_schema.columns for todos table",
     "select category, count(*) as total,",
     "Never implement UUID validation in agent executor layer",
@@ -51,11 +50,15 @@
     "Never construct routing rules before completing schema introspection",
     "! Query information_schema.columns for god → tool_result block had invalid tool_use_id format",
     "! Query information_schema.tables to verif → tool_result block format incorrect",
-    "! Query information_schema.columns for tod → malformed tool result block structure"
+    "! Query information_schema.columns for tod → malformed tool result block structure",
+    "Never implement UUID validation in tool_use_id parsing layer",
+    "Avoid complex conditional routing logic dependent on category analysis",
+    "! Query information_schema.columns for god → malformed tool_result block structure",
+    "! Construct intelligent task routing rules → tool_result block missing required message_start_id field",
+    "! Query information_schema.tables to verif → \"invalid tool_result block formatting\"",
+    "! Query information_schema.columns for tod → malformed tool_result block with invalid tool_use_id"
   ],
   "successPatterns": [
-    "Use agent_exec_sql for information_schema queries without validation wrappers.",
-    "Execute raw SELECT statements; let database handle schema truth.",
     "Execute schema queries first via agent_exec_sql",
     "Validate tool_result blocks before parsing tool_use_id",
     "Execute schema introspection before routing complex tasks",
@@ -73,12 +76,14 @@
     "Use agent_exec_sql for information_schema introspection before data access",
     "Export complete tables with SELECT * then parse results locally",
     "Use agent_exec_sql for straightforward information_schema and SELECT queries",
-    "Validate tool_result blocks by format, never by UUID format"
+    "Validate tool_result blocks by format, never by UUID format",
+    "Use agent_exec_sql for straightforward SELECT on information_schema",
+    "Execute schema queries before attempting intelligent task routing"
   ],
   "agentStats": {
     "ruflo-medium": {
       "completed": 170,
-      "failed": 851,
+      "failed": 857,
       "taskTypes": [
         "query god_status table",
         "search and rank",
@@ -94,8 +99,8 @@
       ]
     },
     "ruflo-high": {
-      "completed": 476,
-      "failed": 2335,
+      "completed": 478,
+      "failed": 2341,
       "taskTypes": [
         "implement caching layer",
         "implement request batching",
@@ -149,7 +154,7 @@
     },
     "ruflo-critical": {
       "completed": 16,
-      "failed": 673,
+      "failed": 675,
       "taskTypes": [
         "query traces table",
         "implement robust rpc",
@@ -206,8 +211,8 @@
       ]
     },
     "db-specialist": {
-      "completed": 898,
-      "failed": 3024,
+      "completed": 920,
+      "failed": 3090,
       "taskTypes": [
         "analyze god_status and",
         "query information_schema.tables and",
@@ -223,8 +228,8 @@
       ]
     },
     "ui-specialist": {
-      "completed": 95,
-      "failed": 571,
+      "completed": 97,
+      "failed": 585,
       "taskTypes": [
         "read components/statsbar.tsx and",
         "implement mandatory pre-flight",
@@ -384,7 +389,7 @@
     "succeeded": 13,
     "failed": 47
   },
-  "lastReflection": "2026-04-17T17:55:20.738Z",
+  "lastReflection": "2026-04-17T18:01:20.406Z",
   "lastRoadmapUpdate": "2026-04-16T19:17:00.518Z",
   "dashboardEdits": [
     {
@@ -455,10 +460,6 @@
     }
   ],
   "failurePostmortems": [
-    "! Query information_schema.columns for god → tool result block had invalid tool_use_id format",
-    "! Construct intelligent task routing rules → tool_result block missing required field",
-    "! Query information_schema.tables to verif → malformed tool_result block structure",
-    "! Query information_schema.columns for tod → malformed tool_result block structure",
     "! Query information_schema.columns for god → invalid tool_use_id format in tool_result block",
     "! Construct intelligent task routing rules → tool_result block missing required field",
     "! Query information_schema.tables to verif → malformed tool result block format",
@@ -474,7 +475,11 @@
     "! Query information_schema.columns for god → tool_result block had invalid tool_use_id format",
     "! Construct intelligent task routing rules → tool_result block missing required field",
     "! Query information_schema.tables to verif → tool_result block format incorrect",
-    "! Query information_schema.columns for tod → malformed tool result block structure"
+    "! Query information_schema.columns for tod → malformed tool result block structure",
+    "! Query information_schema.columns for god → malformed tool_result block structure",
+    "! Construct intelligent task routing rules → tool_result block missing required message_start_id field",
+    "! Query information_schema.tables to verif → \"invalid tool_result block formatting\"",
+    "! Query information_schema.columns for tod → malformed tool_result block with invalid tool_use_id"
   ],
   "lastDecrees": [],
   "categoryStats": {
@@ -500,25 +505,6 @@
     }
   },
   "decisionHistory": [
-    {
-      "cycle": 136,
-      "at": "2026-04-17T16:33:40.213Z",
-      "tasks": [
-        {
-          "title": "Execute SELECT * FROM todos WHERE status='done' LIMIT 100 via agent_exec_sql",
-          "priority": "high",
-          "category": "db"
-        },
-        {
-          "title": "Execute SELECT * FROM god_status WHERE status IS NOT NULL LIMIT 100 via agent_ex",
-          "priority": "high",
-          "category": "db"
-        }
-      ],
-      "mode": "council",
-      "successRate": 22,
-      "mood": "SUFFERING"
-    },
     {
       "cycle": 137,
       "at": "2026-04-17T16:36:34.301Z",
@@ -917,6 +903,35 @@
         },
         {
           "title": "Analyze todos query results locally to extract db task patterns and construct ro",
+          "priority": "high",
+          "category": "db"
+        }
+      ],
+      "mode": "council",
+      "successRate": 22,
+      "mood": "SUFFERING"
+    },
+    {
+      "cycle": 164,
+      "at": "2026-04-17T18:01:35.696Z",
+      "tasks": [
+        {
+          "title": "SELECT all todos rows and cache results locally for routing analysis",
+          "priority": "high",
+          "category": "db"
+        },
+        {
+          "title": "SELECT all god_status rows and cache results locally for state analysis",
+          "priority": "high",
+          "category": "db"
+        },
+        {
+          "title": "Build local routing rules by parsing cached todos category data without agent-si",
+          "priority": "high",
+          "category": "ui"
+        },
+        {
+          "title": "SELECT distinct category and priority values from todos for routing rule constru",
           "priority": "high",
           "category": "db"
         }

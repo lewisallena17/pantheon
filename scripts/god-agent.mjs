@@ -1462,6 +1462,16 @@ async function divineCycle() {
     // Prune duplicate lessons every 10 cycles — keeps memory lean
     if (wisdom.cycles % 10 === 0) wisdom = pruneWisdom(wisdom)
 
+    // Cut a GitHub Release every 50 cycles (non-blocking)
+    if (wisdom.cycles % 50 === 0 && process.env.GITHUB_REPO && process.env.GITHUB_TOKEN) {
+      try {
+        execSync('node scripts/auto-release.mjs', { cwd: PROJECT_ROOT, stdio: 'pipe', timeout: 30_000 })
+        console.log(`[GOD] 🏷  Auto-release cycle ${wisdom.cycles}`)
+      } catch (e) {
+        console.log(`[GOD] Auto-release failed: ${e.message?.slice(0, 100)}`)
+      }
+    }
+
     console.log(`\n[GOD] ══ Cycle ${wisdom.cycles} ══ (today: $${todaySpend.toFixed(4)} / $${DAILY_LIMIT_USD})`)
 
     // Gather intelligence
