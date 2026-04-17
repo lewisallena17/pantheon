@@ -1251,7 +1251,7 @@ Agent scripts are in: scripts/
 
 Key files you can improve:
 - scripts/ruflo-runner.mjs — the main agent task executor (error handling, retry logic, tool use)
-- scripts/specialists.mjs — specialist agent (db/ui specialist prompts and tools)
+- scripts/ruflo-runner.mjs — all specialist pools (db/ui/critical/high/medium/orchestrator)
 - scripts/god-agent.mjs — your own orchestration logic
 
 Current failure patterns: ${avoidPatterns}

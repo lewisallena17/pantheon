@@ -41,6 +41,26 @@
         "nextjs"
       ],
       "comments": 0
+    },
+    {
+      "id": 3,
+      "title": "The Real Cost of Running Autonomous AI Agents (with live data)",
+      "topicType": "cost-transparency",
+      "body": "# The Real Cost of Running Autonomous AI Agents (with live data)\n\n*Published with actual spending data from a live system. No estimates, no marketing fluff.*\n\n---\n\nI've been running an autonomous AI agent system continuously for the past several weeks. Before building it, I searched everywhere for honest cost breakdowns. I found plenty of \"AI is cheap now!\" takes and almost nothing concrete.\n\nSo here's the real data from my system, the code patterns that keep it from bankrupting me, and an hones...",
+      "publishedAt": "2026-04-17T16:56:13.834Z",
+      "platform": "dev.to",
+      "devToId": 3516494,
+      "devToUrl": "https://dev.to/lewisallena17/the-real-cost-of-running-autonomous-ai-agents-with-live-data-acm",
+      "published": true,
+      "views": 0,
+      "reactions": 0,
+      "estimatedEarns": 0,
+      "tags": [
+        "ai",
+        "productivity",
+        "automation",
+        "cloud"
+      ]
     }
   ],
   "totalEstimatedEarnings": 0,
@@ -67,5 +87,5 @@
       "generatedAt": "2026-04-16T18:14:24.367Z"
     }
   ],
-  "lastUpdated": "2026-04-16T18:38:44.653Z"
+  "lastUpdated": "2026-04-17T16:56:13.835Z"
 }

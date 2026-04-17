@@ -144,9 +144,15 @@ const MAX_INPUT_TOKENS  = parseInt(  process.env.MAX_INPUT_TOKENS_PER_RUN ?? '80
 let creditsPaused = false
 let creditsPausedAt = 0
 
+// Read from disk each time — multiple agent processes (god, ruflo, specialists)
+// all write to cost-log.json, so the in-memory copy goes stale. Cheap read,
+// small file.
 function getTodaySpend() {
+  let disk
+  try { disk = JSON.parse(readFileSync(COST_LOG_PATH, 'utf8')) }
+  catch { disk = costLog }
   const today = new Date().toISOString().slice(0, 10)
-  return (costLog.sessions ?? [])
+  return (disk.sessions ?? [])
     .filter(s => s.at?.startsWith(today))
     .reduce((sum, s) => sum + (s.cost ?? 0), 0)
 }
@@ -166,12 +172,22 @@ function isCreditError(err) {
 function recordCost(agentPool, modelId, inputTokens, outputTokens) {
   const rates = COST_PER_TOKEN[modelId] ?? COST_PER_TOKEN['claude-haiku-4-5-20251001']
   const cost = inputTokens * rates.input + outputTokens * rates.output
-  costLog.total = (costLog.total ?? 0) + cost
-  costLog.byAgent[agentPool] = (costLog.byAgent[agentPool] ?? 0) + cost
-  costLog.sessions = [...(costLog.sessions ?? []).slice(-199), {
+
+  // Read fresh from disk so concurrent writers from other processes
+  // (god, specialists, revenue) don't clobber each other's sessions.
+  let fresh
+  try { fresh = JSON.parse(readFileSync(COST_LOG_PATH, 'utf8')) }
+  catch { fresh = { total: 0, byAgent: {}, sessions: [] } }
+
+  fresh.total = (fresh.total ?? 0) + cost
+  fresh.byAgent = fresh.byAgent ?? {}
+  fresh.byAgent[agentPool] = (fresh.byAgent[agentPool] ?? 0) + cost
+  fresh.sessions = [...(fresh.sessions ?? []).slice(-199), {
     at: new Date().toISOString(), agent: agentPool, cost, inputTokens, outputTokens
   }]
-  try { writeFileSync(COST_LOG_PATH, JSON.stringify(costLog, null, 2), 'utf8') } catch {}
+
+  try { writeFileSync(COST_LOG_PATH, JSON.stringify(fresh, null, 2), 'utf8') } catch {}
+  costLog = fresh
   return cost
 }
 
@@ -449,11 +465,15 @@ async function compressMessages(messages) {
       messages: [{ role: 'user', content: `Summarize these agent actions in 3 bullet points (very brief):\n${summaryLines.slice(0, 20).join('\n')}` }]
     })
     const summary = msg.content[0]?.text ?? 'Work in progress.'
+    // Clean-slate compression: keep the original task prompt, inject the
+    // summary as assistant text, then resume with a plain user nudge.
+    // We do NOT keep the old tail — a tool_result without its matching
+    // tool_use block breaks Anthropic's API validation (the old code used
+    // a fake tool_use_id: 'ctx-compress' which got rejected on every call).
     return [
       messages[0],
       { role: 'assistant', content: [{ type: 'text', text: `Progress so far:\n${summary}` }] },
-      { role: 'user', content: [{ type: 'tool_result', tool_use_id: 'ctx-compress', content: 'Context noted. Continue.' }] },
-      ...messages.slice(-4)
+      { role: 'user', content: 'Continue from where you left off.' },
     ]
   } catch {
     return messages
@@ -736,7 +756,6 @@ async function runAgentLoop(todo, agentName, model, poolName, opts = {}) {
     }
 
     // Per-task cost cap — abort if this one task is getting too expensive
-    const runCost = recordCost.__preview?.(poolName, MODELS[model] ?? MODELS.sonnet, totalInputTokens, totalOutputTokens) ?? 0
     if (totalInputTokens > 10_000) { // only check after warmup
       const estimatedCost = totalInputTokens * (COST_PER_TOKEN[MODELS[model]]?.input ?? 0.0000008)
                           + totalOutputTokens * (COST_PER_TOKEN[MODELS[model]]?.output ?? 0.000004)
