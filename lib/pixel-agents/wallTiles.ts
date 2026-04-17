@@ -10,7 +10,7 @@
  * Bitmask convention: N=1, E=2, S=4, W=8. Out-of-bounds = NOT wall.
  */
 
-import type { ColorValue } from '../components/ui/types';
+import type { ColorValue } from './constants';
 import { getColorizedSprite } from './colorize';
 import type { FurnitureInstance, SpriteData, TileType as TileTypeVal } from './types';
 import { TILE_SIZE, TileType } from './types';

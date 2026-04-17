@@ -6,7 +6,7 @@
  * Caches colorized SpriteData by (pattern, h, s, b, c) key.
  */
 
-import type { ColorValue } from '../components/ui/types';
+import type { ColorValue } from './constants';
 import { CANVAS_ERROR_TILE_COLOR, FALLBACK_FLOOR_COLOR, TILE_SIZE } from './constants';
 import { clearColorizeCache, getColorizedSprite } from './colorize';
 import type { SpriteData } from './types';

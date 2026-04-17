@@ -1,6 +1,6 @@
 // Stripped-down constants for Next.js embedding (no VS Code dependency)
 
-export type ColorValue = { h: number; s: number; b: number; c: number }
+export type ColorValue = { h: number; s: number; b: number; c: number; colorize?: boolean }
 
 // ── Grid & Layout ─────────────────────────────────────────────
 export const TILE_SIZE = 16

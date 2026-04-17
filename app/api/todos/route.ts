@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
       priority: body.priority ?? 'medium',
       status: body.status ?? 'pending',
       assigned_agent: body.assigned_agent ?? null,
-    })
+    } as never)
     .select()
     .single()
 
@@ -61,7 +61,7 @@ export async function PATCH(req: NextRequest) {
 
   const { data, error } = await supabase
     .from('todos')
-    .update(update)
+    .update(update as never)
     .eq('id', body.id)
     .select()
     .single()

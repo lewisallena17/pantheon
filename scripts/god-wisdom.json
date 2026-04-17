@@ -1,9 +1,6 @@
 {
-  "cycles": 126,
+  "cycles": 128,
   "lessons": [
-    "Validation layers and abstraction break; raw queries work.",
-    "Information_schema reliable; application logic causes cascading failures.",
-    "Schema introspection works; data operations fail consistently.",
     "Raw queries succeed; abstraction layers cause cascading failures.",
     "Validation frameworks break what raw simplicity achieves easily.",
     "Schema queries succeed; data extraction fails consistently",
@@ -30,16 +27,12 @@
     "Metadata queries reliable; restrict data access to filtered reads",
     "Metadata queries succeed; direct data access fails consistently",
     "UUID validation layer essential; fixes tool_result parsing errors",
-    "Schema introspection reliable; restrict to information_schema only"
+    "Schema introspection reliable; restrict to information_schema only",
+    "Metadata queries work; direct data access fails consistently",
+    "tool_result validation essential; UUID formatting fixes parsing errors",
+    "Schema introspection reliable via information_schema only"
   ],
   "avoidPatterns": [
-    "Never query raw data before confirming schema exists",
-    "execute raw select * from",
-    "Never execute SELECT * or WHERE clauses on data tables",
-    "Avoid validation layers and tool_result block corrections entirely",
-    "! Analyze db category success patterns via → tool_result block missing required fields",
-    "! Fetch db category todos via agent_exec_s → invalid tool_use_id format in tool_result block",
-    "! Execute SELECT COUNT(*) as total FROM to → tool_result block had invalid tool_use_id format",
     "! Query information_schema for todos and g → tool_result block had invalid tool_use_id",
     "query information_schema.columns for todos table",
     "select category, count(*) as total,",
@@ -56,11 +49,12 @@
     "! Query information_schema.columns for god → tool_result block had invalid tool_use_id format",
     "! Construct intelligent task routing rules → tool_result block missing required field",
     "! Query information_schema.tables to verif → invalid tool_result block format with ctx-compress",
-    "! Query information_schema.columns for tod → malformed tool result block structure"
+    "! Query information_schema.columns for tod → malformed tool result block structure",
+    "implement tool_use_id uuid validation layer",
+    "Never query user tables directly; restrict to schema only",
+    "Don't skip tool_result block validation in agent executor"
   ],
   "successPatterns": [
-    "Execute bare information_schema queries directly via agent_exec_sql",
-    "Query system tables for metadata; avoid application logic layers",
     "Query information_schema.* directly for structural truth",
     "Execute raw SELECT statements without intermediary validation",
     "Use information_schema.columns and information_schema.tables for all DB work",
@@ -78,12 +72,14 @@
     "Use information_schema.columns and information_schema.tables for all schema work",
     "Validate tool_use_id format before executing agent results",
     "Use agent_exec_sql for information_schema.columns and information_schema.tables",
-    "Implement tool_use_id validation before processing tool_result blocks"
+    "Implement tool_use_id validation before processing tool_result blocks",
+    "Use agent_exec_sql for information_schema metadata queries",
+    "Validate tool_use_id format before processing results"
   ],
   "agentStats": {
     "ruflo-medium": {
       "completed": 170,
-      "failed": 743,
+      "failed": 746,
       "taskTypes": [
         "query god_status table",
         "search and rank",
@@ -99,8 +95,8 @@
       ]
     },
     "ruflo-high": {
-      "completed": 440,
-      "failed": 2227,
+      "completed": 441,
+      "failed": 2230,
       "taskTypes": [
         "implement caching layer",
         "implement request batching",
@@ -154,7 +150,7 @@
     },
     "ruflo-critical": {
       "completed": 16,
-      "failed": 637,
+      "failed": 638,
       "taskTypes": [
         "query traces table",
         "implement robust rpc",
@@ -211,9 +207,10 @@
       ]
     },
     "db-specialist": {
-      "completed": 502,
-      "failed": 1836,
+      "completed": 513,
+      "failed": 1869,
       "taskTypes": [
+        "analyze god_status and",
         "query information_schema.tables and",
         "export complete god_status",
         "create lightweight schema",
@@ -223,13 +220,12 @@
         "query information_schema.tables to",
         "query information_schema for",
         "introspect god_status table",
-        "introspect todos table",
-        "execute schema introspection"
+        "introspect todos table"
       ]
     },
     "ui-specialist": {
-      "completed": 59,
-      "failed": 319,
+      "completed": 60,
+      "failed": 326,
       "taskTypes": [
         "read components/statsbar.tsx and",
         "implement mandatory pre-flight",
@@ -386,10 +382,10 @@
   ],
   "taskStats": {
     "attempted": 60,
-    "succeeded": 12,
-    "failed": 48
+    "succeeded": 13,
+    "failed": 47
   },
-  "lastReflection": "2026-04-16T20:02:00.991Z",
+  "lastReflection": "2026-04-17T16:09:30.889Z",
   "lastRoadmapUpdate": "2026-04-16T19:17:00.518Z",
   "dashboardEdits": [
     {
@@ -478,12 +474,12 @@
   ],
   "categoryStats": {
     "db": {
-      "succeeded": 9,
-      "failed": 36
+      "succeeded": 12,
+      "failed": 34
     },
     "ui": {
-      "succeeded": 3,
-      "failed": 6
+      "succeeded": 1,
+      "failed": 7
     },
     "infra": {
       "succeeded": 0,

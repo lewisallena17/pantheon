@@ -53,7 +53,9 @@ export async function POST() {
     .select('title')
     .in('status', ['proposed', 'pending', 'in_progress'])
 
-  const existingTitles = new Set((existing ?? []).map(t => t.title.toLowerCase()))
+  const existingTitles = new Set(
+    ((existing ?? []) as Array<{ title: string }>).map(t => t.title.toLowerCase())
+  )
 
   let imported = 0
   const errors: string[] = []
@@ -86,7 +88,7 @@ export async function POST() {
         at:    new Date().toISOString(),
         text:  `From GitHub issue by @${issue.user.login}: ${issue.html_url}\n\n${(issue.body ?? '').slice(0, 500)}`,
       }],
-    })
+    } as never)
 
     if (error) errors.push(`#${issue.number}: ${error.message}`)
     else imported++
