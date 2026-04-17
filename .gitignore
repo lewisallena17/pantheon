@@ -32,12 +32,16 @@ desktop.ini
 .vscode/settings.json
 .idea/
 
-# agent runtime (mutable state, not code)
+# agent runtime (mutable state — not code, changes on every cycle)
 scripts/agent-memory/
+scripts/god-wisdom.json
 scripts/god-wisdom.json.bak
+scripts/god-research.json
 scripts/.god-state.json
+scripts/cost-log.json
 scripts/subscribers.json
 scripts/promote-log.json
+scripts/revenue-log.json
 
 # marketplace artifacts (regeneratable + user-specific state)
 dist/listings/*/

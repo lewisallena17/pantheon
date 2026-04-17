@@ -76,7 +76,7 @@ Git history         Code tab → click any commit to revert
 ## Get started
 
 ```bash
-git clone https://github.com/YOUR-USERNAME/task-dashboard.git
+git clone https://github.com/lewisallena17/pantheon.git
 cd task-dashboard
 npm install
 cp .env.example .env.local
@@ -141,11 +141,11 @@ PRs welcome. Please:
 2. If you add a migration, number it sequentially in `supabase/migrations/`.
 3. Prefer small, focused PRs. God reviews its own code now; happy to extend that to human PRs.
 
-Bug reports via [Issues](https://github.com/YOUR-USERNAME/task-dashboard/issues) — they sync into the dashboard's Task Inbox, so God might actually fix them while you sleep.
+Bug reports via [Issues](https://github.com/lewisallena17/pantheon/issues) — they sync into the dashboard's Task Inbox, so God might actually fix them while you sleep.
 
 ## Sponsors
 
-Building this in public. If the repo or articles helped you, [GitHub Sponsors](https://github.com/sponsors/YOUR-USERNAME) keeps me shipping. Tiers start at $5/mo.
+Building this in public. If the repo or articles helped you, [GitHub Sponsors](https://github.com/sponsors/lewisallena17) keeps me shipping. Tiers start at $5/mo.
 
 ## License
 
@@ -153,4 +153,4 @@ MIT for the source code. Commercial deployments are fine — not for reselling t
 
 ---
 
-Built by [@YOUR-USERNAME](https://github.com/YOUR-USERNAME). Watching the agents do the work so I don't have to.
+Built by [@lewisallena17](https://github.com/lewisallena17). Watching the agents do the work so I don't have to.
