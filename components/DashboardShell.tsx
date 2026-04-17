@@ -34,6 +34,7 @@ import NotificationStatus from './NotificationStatus'
 import CriticalAlertBanner from './CriticalAlertBanner'
 import MarketplaceListings from './MarketplaceListings'
 import SubscribersPanel from './SubscribersPanel'
+import NewsletterComposer from './NewsletterComposer'
 
 interface Props {
   initialTodos: Todo[]
@@ -230,6 +231,7 @@ export default function DashboardShell({ initialTodos }: Props) {
         <div id={SECTION_IDS.revenue} className={gap}>
           <MarketplaceListings />
           <SubscribersPanel />
+          <NewsletterComposer />
           <RevenueTracker />
           <DevToLiveStats />
           <RevenueAutomation />

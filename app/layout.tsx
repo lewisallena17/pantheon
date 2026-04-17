@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import Script from 'next/script'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -6,11 +7,44 @@ export const metadata: Metadata = {
   description: 'Real-time agent task monitor',
 }
 
+// Analytics scripts are rendered only if their respective env vars are set.
+// Privacy-friendly: Umami self-hosted or Plausible, no cookies, no PII.
+// Set one (not both) in .env.local + Vercel:
+//   NEXT_PUBLIC_UMAMI_WEBSITE_ID + NEXT_PUBLIC_UMAMI_SRC   (https://umami.is/docs)
+//   NEXT_PUBLIC_PLAUSIBLE_DOMAIN                           (https://plausible.io/docs)
+function Analytics() {
+  const umamiId  = process.env.NEXT_PUBLIC_UMAMI_WEBSITE_ID
+  const umamiSrc = process.env.NEXT_PUBLIC_UMAMI_SRC ?? 'https://cloud.umami.is/script.js'
+  const plausibleDomain = process.env.NEXT_PUBLIC_PLAUSIBLE_DOMAIN
+
+  return (
+    <>
+      {umamiId && (
+        <Script
+          src={umamiSrc}
+          data-website-id={umamiId}
+          strategy="afterInteractive"
+          defer
+        />
+      )}
+      {plausibleDomain && (
+        <Script
+          src="https://plausible.io/js/script.js"
+          data-domain={plausibleDomain}
+          strategy="afterInteractive"
+          defer
+        />
+      )}
+    </>
+  )
+}
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
       <body className="min-h-screen antialiased">
         {children}
+        <Analytics />
       </body>
     </html>
   )
