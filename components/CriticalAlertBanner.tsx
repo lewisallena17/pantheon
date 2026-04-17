@@ -6,24 +6,61 @@
  * Sticky top-of-viewport ribbon that fires whenever the system fail rate
  * crosses 60 % on a meaningful sample (≥ 5 closed tasks).
  *
- * Lives at the very top of DashboardShell so the operator always sees it
- * regardless of scroll position — the existing StatsBar alarm is only visible
- * if you haven't scrolled down at all.
- *
- * Renders null when the system is healthy, so there is zero layout cost.
+ * Now includes a one-click "Retry All Failed" button that re-queues every
+ * failed task back to `pending` directly from the banner — no need to scroll
+ * down to the StickyHeader retry button.
  */
 
+import { useCallback, useState } from 'react'
 import type { Todo } from '@/types/todos'
 
 interface Props {
   todos: Todo[]
 }
 
+type RetryState = 'idle' | 'running' | 'done' | 'error'
+
 export default function CriticalAlertBanner({ todos }: Props) {
   const completed = todos.filter(t => t.status === 'completed').length
   const failed    = todos.filter(t => t.status === 'failed').length
   const active    = todos.filter(t => t.status === 'in_progress').length
   const closed    = completed + failed
+
+  const [retryState, setRetryState] = useState<RetryState>('idle')
+  const [retryMsg,   setRetryMsg]   = useState('')
+
+  const failedTodos = todos.filter(t => t.status === 'failed')
+
+  const retryAll = useCallback(async () => {
+    if (retryState === 'running' || failedTodos.length === 0) return
+    setRetryState('running')
+    setRetryMsg('')
+    try {
+      const results = await Promise.allSettled(
+        failedTodos.map(t =>
+          fetch('/api/todos', {
+            method:  'PATCH',
+            headers: { 'content-type': 'application/json' },
+            body:    JSON.stringify({ id: t.id, status: 'pending' }),
+          })
+        )
+      )
+      const ok  = results.filter(r => r.status === 'fulfilled').length
+      const err = results.length - ok
+      if (err === 0) {
+        setRetryMsg(`✓ ${ok} task${ok !== 1 ? 's' : ''} re-queued`)
+        setRetryState('done')
+      } else {
+        setRetryMsg(`⚠ ${ok} ok · ${err} failed`)
+        setRetryState('error')
+      }
+    } catch {
+      setRetryMsg('✗ retry failed')
+      setRetryState('error')
+    } finally {
+      setTimeout(() => { setRetryState('idle'); setRetryMsg('') }, 5000)
+    }
+  }, [failedTodos, retryState])
 
   if (closed < 5) return null
 
@@ -102,6 +139,33 @@ export default function CriticalAlertBanner({ todos }: Props) {
             </span>
           </>
         )}
+
+        {/* ── ONE-CLICK RETRY — the most important new affordance ── */}
+        <div className="flex items-center gap-2 flex-shrink-0 ml-1">
+          <button
+            onClick={retryAll}
+            disabled={retryState === 'running' || failed === 0}
+            title={`Re-queue all ${failed} failed task${failed !== 1 ? 's' : ''} as pending`}
+            className={`
+              text-[11px] font-mono font-bold px-3 py-1 rounded border transition-all duration-200
+              ${retryState === 'running'
+                ? 'border-red-800/40 text-red-700 cursor-wait bg-transparent'
+                : retryState === 'done'
+                  ? 'border-emerald-700/60 bg-emerald-950/40 text-emerald-300 cursor-default'
+                  : retryState === 'error'
+                    ? 'border-orange-700/60 bg-orange-950/30 text-orange-300 cursor-default'
+                    : isCatastrophic
+                      ? 'border-red-400/60 bg-red-900/50 text-red-100 hover:bg-red-800/60 hover:border-red-300/70 active:scale-95'
+                      : 'border-red-600/60 bg-red-900/40 text-red-200 hover:bg-red-800/50 hover:border-red-500/70 active:scale-95'
+              }
+            `}
+          >
+            {retryState === 'running' ? '⟳ retrying…'
+             : retryState === 'done'  ? retryMsg
+             : retryState === 'error' ? retryMsg
+             : `⟳ retry all ${failed} failed`}
+          </button>
+        </div>
 
         {/* Right: compact animated fail-rate bar */}
         <div className="flex-1 hidden sm:flex items-center justify-end min-w-0">
