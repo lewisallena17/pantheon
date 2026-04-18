@@ -17,8 +17,75 @@ interface AgentOnline {
   online: boolean
 }
 
-// How a retry result comes back from the button
 type RetryState = 'idle' | 'running' | 'done' | 'error'
+
+// ── HealthArc ────────────────────────────────────────────────────────────────
+// A tiny SVG arc showing the win-rate (completed / closed) as a colour-coded
+// donut segment. Gives operators an instant gestalt read of system health
+// without needing to parse individual numbers.
+function HealthArc({ winRate }: { winRate: number | null }) {
+  if (winRate === null) {
+    return (
+      <svg width="28" height="28" viewBox="0 0 28 28" className="flex-shrink-0" aria-hidden>
+        <circle cx="14" cy="14" r="11" fill="none" stroke="rgb(30,41,59)" strokeWidth="3" />
+      </svg>
+    )
+  }
+
+  const R          = 11
+  const CIRCUM     = 2 * Math.PI * R
+  const filled     = Math.max(0, Math.min(1, winRate / 100))
+  const dashArray  = `${(filled * CIRCUM).toFixed(2)} ${CIRCUM.toFixed(2)}`
+  // rotate so arc starts at top (−90°)
+  const transform  = 'rotate(-90 14 14)'
+
+  const color =
+    winRate >= 70 ? '#34d399' :   // emerald
+    winRate >= 40 ? '#fbbf24' :   // amber
+                    '#f87171'     // red
+
+  // Inner label: show % but only if there's room (>= 2 digits fine at 28px)
+  const label =
+    winRate >= 100 ? '✓' :
+    winRate >= 10  ? `${Math.round(winRate)}` :
+                     `${Math.round(winRate)}`
+
+  return (
+    <svg
+      width="28" height="28"
+      viewBox="0 0 28 28"
+      className="flex-shrink-0"
+      title={`Win rate: ${Math.round(winRate)}%`}
+      aria-label={`Win rate ${Math.round(winRate)} percent`}
+    >
+      {/* Track */}
+      <circle cx="14" cy="14" r={R} fill="none" stroke="rgb(30,41,59)" strokeWidth="3" />
+      {/* Fill */}
+      <circle
+        cx="14" cy="14" r={R}
+        fill="none"
+        stroke={color}
+        strokeWidth="3"
+        strokeLinecap="round"
+        strokeDasharray={dashArray}
+        transform={transform}
+        style={{ transition: 'stroke-dasharray 0.8s ease, stroke 0.4s ease' }}
+      />
+      {/* Centre label */}
+      <text
+        x="14" y="14"
+        textAnchor="middle"
+        dominantBaseline="central"
+        fontSize="6"
+        fontFamily="ui-monospace,monospace"
+        fontWeight="700"
+        fill={color}
+      >
+        {label}
+      </text>
+    </svg>
+  )
+}
 
 export default function StickyHeader({
   todos, activeTab, onTab, tabs, compact, onToggleCompact,
@@ -57,22 +124,23 @@ export default function StickyHeader({
   }, [])
 
   const stats = useMemo(() => {
-    let active = 0, failed = 0, proposed = 0, pending = 0
+    let active = 0, failed = 0, proposed = 0, pending = 0, completed = 0
     for (const t of todos) {
-      if (t.status === 'in_progress') active++
-      else if (t.status === 'failed') failed++
-      else if (t.status === 'proposed') proposed++
-      else if (t.status === 'pending') pending++
+      if      (t.status === 'in_progress') active++
+      else if (t.status === 'failed')      failed++
+      else if (t.status === 'proposed')    proposed++
+      else if (t.status === 'pending')     pending++
+      else if (t.status === 'completed')   completed++
     }
-    return { active, failed, proposed, pending }
+    const closed  = completed + failed
+    const winRate = closed >= 3 ? Math.round((completed / closed) * 100) : null
+    return { active, failed, proposed, pending, completed, closed, winRate }
   }, [todos])
 
-  const failedTodos = useMemo(() => todos.filter(t => t.status === 'failed'), [todos])
+  const failedTodos  = useMemo(() => todos.filter(t => t.status === 'failed'), [todos])
   const onlineAgents = agents.filter(a => a.online).length
 
-  // ── Batch-retry all failed tasks ─────────────────────────────────────────
-  // PATCH each failed task back to `pending` so agents can pick them up again.
-  // Shows a brief success/error message that auto-clears after 4 s.
+  // ── Batch-retry all failed tasks ──────────────────────────────────────────
   const retryAllFailed = useCallback(async () => {
     if (retryState === 'running' || failedTodos.length === 0) return
     setRetryState('running')
@@ -90,14 +158,14 @@ export default function StickyHeader({
       const succeeded = results.filter(r => r.status === 'fulfilled').length
       const errCount  = results.length - succeeded
       if (errCount === 0) {
-        setRetryMsg(`✓ ${succeeded} task${succeeded !== 1 ? 's' : ''} re-queued`)
+        setRetryMsg(`✓ ${succeeded} re-queued`)
         setRetryState('done')
       } else {
-        setRetryMsg(`⚠ ${succeeded} ok · ${errCount} failed`)
+        setRetryMsg(`⚠ ${succeeded} ok · ${errCount} err`)
         setRetryState('error')
       }
     } catch {
-      setRetryMsg('✗ retry failed')
+      setRetryMsg('✗ failed')
       setRetryState('error')
     } finally {
       setTimeout(() => { setRetryState('idle'); setRetryMsg('') }, 4000)
@@ -108,27 +176,65 @@ export default function StickyHeader({
     <div className="sticky top-0 z-30 -mx-4 px-4 py-2 bg-black/95 backdrop-blur-md border-b border-slate-800/60">
       <div className="flex items-center gap-2 flex-wrap">
 
-        {/* ── Key metrics ── */}
-        <div className="flex items-center gap-3 text-[10px] font-mono">
-          {stats.proposed > 0 && (
-            <span className="px-2 py-0.5 rounded border border-amber-900/60 bg-amber-950/40 text-amber-300 animate-pulse">
-              📥 {stats.proposed} inbox
+        {/* ── Health arc + key metrics ── */}
+        <div className="flex items-center gap-2">
+          <HealthArc winRate={stats.winRate} />
+
+          <div className="flex items-center gap-3 text-[10px] font-mono">
+            {/* Inbox badge */}
+            {stats.proposed > 0 && (
+              <button
+                onClick={() => onTab('tasks')}
+                className="px-2 py-0.5 rounded border border-amber-900/60 bg-amber-950/40 text-amber-300 animate-pulse hover:bg-amber-950/60 transition-colors"
+                title="Switch to Tasks tab to review inbox"
+              >
+                📥 {stats.proposed} inbox
+              </button>
+            )}
+
+            {/* Active indicator */}
+            <span
+              className={`flex items-center gap-1 ${stats.active > 0 ? 'text-cyan-300' : 'text-slate-600'}`}
+              title={`${stats.active} task${stats.active !== 1 ? 's' : ''} in progress`}
+            >
+              <span className={
+                stats.active > 0
+                  ? 'inline-block w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse'
+                  : 'inline-block w-1.5 h-1.5 rounded-full bg-slate-700'
+              } />
+              {stats.active} active
             </span>
-          )}
-          <span className={`${stats.active > 0 ? 'text-cyan-300' : 'text-slate-500'}`}>
-            <span className={stats.active > 0
-              ? 'inline-block w-1.5 h-1.5 rounded-full bg-cyan-400 mr-1 animate-pulse'
-              : 'inline-block w-1.5 h-1.5 rounded-full bg-slate-700 mr-1'
-            } />
-            {stats.active} active
-          </span>
-          <span className="text-slate-500">{stats.pending} queued</span>
-          <span className={stats.failed > 0 ? 'text-red-400' : 'text-slate-600'}>
-            ✗ {stats.failed}
-          </span>
+
+            {/* Queued */}
+            <span className="text-slate-500" title={`${stats.pending} pending tasks`}>
+              {stats.pending} queued
+            </span>
+
+            {/* Win rate text — complementary to the arc */}
+            {stats.winRate !== null && (
+              <span
+                className={`tabular-nums font-bold ${
+                  stats.winRate >= 70 ? 'text-emerald-400' :
+                  stats.winRate >= 40 ? 'text-amber-400'   :
+                                        'text-red-400'
+                }`}
+                title={`${stats.completed} completed / ${stats.closed} closed`}
+              >
+                {stats.winRate}% win
+              </span>
+            )}
+
+            {/* Failed count — red when non-zero, muted when clean */}
+            <span
+              className={`tabular-nums ${stats.failed > 0 ? 'text-red-400 font-bold' : 'text-slate-600'}`}
+              title={`${stats.failed} failed tasks`}
+            >
+              ✗ {stats.failed}
+            </span>
+          </div>
         </div>
 
-        {/* ── Retry failed button — only rendered when there are failures ── */}
+        {/* ── Retry failed button ── */}
         {stats.failed > 0 && (
           <button
             onClick={retryAllFailed}
@@ -149,7 +255,7 @@ export default function StickyHeader({
             {retryState === 'running' ? '⟳ retrying…'
             : retryState === 'done'   ? retryMsg
             : retryState === 'error'  ? retryMsg
-            : `⟳ retry ${stats.failed} failed`}
+            : `⟳ retry ${stats.failed}`}
           </button>
         )}
 
@@ -165,18 +271,22 @@ export default function StickyHeader({
               className={`w-1.5 h-1.5 rounded-full ${a.online ? 'bg-green-400' : 'bg-red-500'}`}
             />
           ))}
-          <span className="ml-1 text-slate-600">{onlineAgents}/{agents.length || '-'}</span>
+          <span className="ml-1 text-slate-600">{onlineAgents}/{agents.length || '–'}</span>
         </div>
 
+        {/* ── Daily cost ── */}
         {dailyCost !== null && (
           <>
             <div className="h-4 w-px bg-slate-800/60" />
             <span className="text-[10px] font-mono text-slate-500">
-              today <span className={
+              today{' '}
+              <span className={
                 dailyCost > 1.5  ? 'text-amber-400' :
                 dailyCost > 0.5  ? 'text-cyan-400'  :
                                    'text-slate-400'
-              }>${dailyCost.toFixed(4)}</span>
+              }>
+                ${dailyCost.toFixed(4)}
+              </span>
             </span>
           </>
         )}
@@ -196,21 +306,21 @@ export default function StickyHeader({
               <span className="mr-1">{t.icon}</span>{t.label}
               {t.badge !== undefined && t.badge > 0 && (
                 <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 text-[8px] rounded-full bg-amber-500 text-black font-bold flex items-center justify-center">
-                  {t.badge > 9 ? '9+' : t.badge}
+                  {t.badge > 99 ? '99+' : t.badge}
                 </span>
               )}
             </button>
           ))}
-        </div>
 
-        {/* ── Density toggle ── */}
-        <button
-          onClick={onToggleCompact}
-          title={compact ? 'Expand' : 'Compact'}
-          className="text-[10px] font-mono px-2 py-1 rounded border border-slate-700/50 text-slate-500 hover:text-slate-300"
-        >
-          {compact ? '⊞' : '▭'}
-        </button>
+          {/* ── Compact toggle ── */}
+          <button
+            onClick={onToggleCompact}
+            title={compact ? 'Expand layout' : 'Compact layout'}
+            className="ml-1 text-[10px] font-mono px-2 py-1 rounded border border-transparent text-slate-600 hover:text-slate-400 hover:border-slate-700/50 transition-colors"
+          >
+            {compact ? '⊞' : '⊟'}
+          </button>
+        </div>
       </div>
     </div>
   )
