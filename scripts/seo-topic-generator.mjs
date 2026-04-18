@@ -91,8 +91,12 @@ Output ONLY valid JSON. No markdown, no preamble:
   "takeaway":        "one-sentence summary with CTA language"
 }`
 
+  // Haiku — ~3× cheaper than Sonnet, output is good enough for
+  // SEO landing pages (keyword-optimised structure matters more than prose
+  // flourish). Switch back to claude-sonnet-4-6 if you start seeing shallow
+  // content in Google Search Console analytics.
   const response = await anthropic.messages.create({
-    model: 'claude-sonnet-4-6',
+    model: 'claude-haiku-4-5-20251001',
     max_tokens: 2500,
     messages: [{ role: 'user', content: prompt }],
   })
