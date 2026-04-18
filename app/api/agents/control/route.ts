@@ -1,20 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { exec } from 'node:child_process'
 import { promisify } from 'node:util'
+import { IS_SERVERLESS } from '@/lib/runtime'
 
 const execAsync = promisify(exec)
 
 const ALLOWED_NAMES = new Set(['god', 'ruflo-agents', 'ruflo-orchestrator', 'revenue', 'promote', 'all'])
 const ALLOWED_ACTIONS = new Set(['start', 'stop', 'restart', 'reload'])
-
-// PM2 lives on your local machine, not on Vercel's serverless runtime.
-// Detect "am I on Vercel/serverless?" and return a friendly no-op so the
-// dashboard UI handles it gracefully instead of showing a /bin/sh error.
-const IS_SERVERLESS = Boolean(
-  process.env.VERCEL ||
-  process.env.AWS_EXECUTION_ENV ||
-  process.env.NETLIFY,
-)
 
 function serverlessPayload() {
   return {

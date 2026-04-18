@@ -2,13 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { exec } from 'node:child_process'
 import { promisify } from 'node:util'
 import path from 'node:path'
+import { IS_SERVERLESS } from '@/lib/runtime'
 
 const execAsync = promisify(exec)
 const REPO_ROOT = path.resolve(process.cwd())
-
-// Git commands don't work on Vercel's serverless runtime (no .git directory
-// in the build artifact). Return empty + a remote flag so the UI stays clean.
-const IS_SERVERLESS = Boolean(process.env.VERCEL || process.env.AWS_EXECUTION_ENV || process.env.NETLIFY)
 
 interface Commit {
   sha:       string

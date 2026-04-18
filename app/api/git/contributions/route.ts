@@ -2,11 +2,10 @@ import { NextResponse } from 'next/server'
 import { exec } from 'node:child_process'
 import { promisify } from 'node:util'
 import path from 'node:path'
+import { IS_SERVERLESS } from '@/lib/runtime'
 
 const execAsync = promisify(exec)
 const REPO_ROOT = path.resolve(process.cwd())
-
-const IS_SERVERLESS = Boolean(process.env.VERCEL || process.env.AWS_EXECUTION_ENV || process.env.NETLIFY)
 
 // Returns a 365-day heatmap: { date: 'YYYY-MM-DD', commits: N, godCommits: N }
 export async function GET() {

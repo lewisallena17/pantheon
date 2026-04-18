@@ -100,19 +100,13 @@ function updateAgentMemory(poolName, lesson) {
 }
 
 // ── Shared cross-pool memory ──────────────────────────────────────────────
-const SHARED_MEMORY_PATH = join(AGENT_MEMORY_DIR, 'global-lessons.json')
+// Delegates to lib-shared-memory.mjs (same helpers God uses) so both
+// writers target the same file with compatible shape. Local aliases
+// kept so existing call sites don't change.
+import { loadShared, publishShared } from './lib-shared-memory.mjs'
 
-function loadSharedMemory() {
-  try { if (existsSync(SHARED_MEMORY_PATH)) return JSON.parse(readFileSync(SHARED_MEMORY_PATH, 'utf8')) } catch {}
-  return { lessons: [], taskCount: 0 }
-}
-
-function addSharedLesson(lesson) {
-  const mem = loadSharedMemory()
-  mem.lessons = [...mem.lessons.slice(-49), lesson]
-  mem.taskCount = (mem.taskCount ?? 0) + 1
-  try { writeFileSync(SHARED_MEMORY_PATH, JSON.stringify(mem, null, 2), 'utf8') } catch {}
-}
+const loadSharedMemory  = () => loadShared(AGENT_MEMORY_DIR)
+const addSharedLesson   = (lesson) => publishShared(AGENT_MEMORY_DIR, lesson)
 
 // ── Error pattern matching from memory ────────────────────────────────────
 function matchErrorToMemory(errorMsg, memory) {

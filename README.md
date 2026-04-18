@@ -46,11 +46,17 @@ Git history         Code tab → click any commit to revert
 │  every 2 min:                                  │
 │    survey todos + metrics                      │
 │    convene council of perspectives             │
-│    propose tasks (critical/high/medium)        │
-│    learn from recent failures                  │
+│    propose tasks toward self-chosen goals      │
+│    extract lessons from failures AND successes │
+│    web-search errors for fixes                 │
 │    every 5 cycles  → edit dashboard files      │
 │    every 10 cycles → edit agent scripts        │
 │    every 10 cycles → prune duplicate lessons   │
+│    every 10 cycles → write SEO landing page    │
+│    every 15 cycles → generate new goals        │
+│    every 20 cycles → research inspiration repo │
+│    every 25 cycles → meta-reflection on self   │
+│    every 50 cycles → cut a GitHub release      │
 └──────────┬─────────────────────────────────────┘
            ▼
 ┌─ TASK INBOX ───────────────────────────────────┐
