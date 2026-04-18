@@ -22,6 +22,7 @@ import { dirname, join, resolve } from 'node:path'
 import { execSync } from 'node:child_process'
 import { notify, shouldNotify } from './lib-notify.mjs'
 import { pruneWisdom } from './god/memory.mjs'
+import { publishSharedBatch } from './lib-shared-memory.mjs'
 
 const __dirname   = dirname(fileURLToPath(import.meta.url))
 const PROJECT_ROOT = resolve(__dirname, '..')
@@ -438,8 +439,20 @@ function loadWisdom() {
   return { ...WISDOM_DEFAULTS }
 }
 
+const AGENT_MEMORY_DIR = join(PROJECT_ROOT, 'scripts', 'agent-memory')
+
 function saveWisdom(w) {
   try { writeFileSync(WISDOM_PATH, JSON.stringify(w, null, 2), 'utf8') } catch {}
+
+  // Bridge God's high-signal learnings into the shared cross-agent pool so
+  // specialists see them too. Only last few of each type — don't drown the
+  // shared lesson stream.
+  const bridged = [
+    ...(w.lessons         ?? []).filter(l => l.startsWith('[WEB-FIX]') || l.startsWith('[META]')).slice(-5),
+    ...(w.successPatterns ?? []).slice(-5),
+    ...(w.avoidPatterns   ?? []).filter(p => p.startsWith('!')).slice(-5).map(p => `AVOID: ${p.slice(2)}`),
+  ]
+  if (bridged.length) publishSharedBatch(AGENT_MEMORY_DIR, bridged)
 }
 
 // Memory dedup (lessonTokens, jaccard, dedupLessons, pruneWisdom) extracted
@@ -846,6 +859,53 @@ Example format:
 }
 
 // ── 7b. Failure postmortem — WHY did tasks fail? ──────────────────────────
+// ── Success pattern extractor ────────────────────────────────────────────────
+// Mirror of failurePostmortem — but for wins. Samples 3 recent completed
+// tasks and asks "what pattern made this work?" The result feeds into
+// successPatterns, which are fed to future council prompts as positive
+// examples. Learning from wins is half the signal that was previously
+// discarded (old code only analyzed failures).
+async function successPatternLearn(todos, wisdom) {
+  if (wisdom.cycles % 4 !== 0) return wisdom
+
+  const recentWins = todos
+    .filter(t => t.status === 'completed')
+    .filter(t => !(t.comments?.slice(-1)[0]?.text ?? '').toLowerCase().includes('cost cap'))  // skip aborted
+    .slice(0, 3)
+
+  if (!recentWins.length) return wisdom
+
+  await setGodThought(`Learning from ${recentWins.length} successful tasks...`)
+
+  const patterns = []
+  for (const task of recentWins) {
+    const comment = task.comments?.slice(-1)[0]?.text ?? ''
+    const prompt = `Task: "${task.title.slice(0, 80)}"
+Outcome: "${comment.slice(0, 200)}"
+Agent: ${task.assigned_agent ?? 'unknown'}
+
+In one short phrase (max 12 words), what pattern or approach made this succeed?
+Examples: "verified schema before writing SQL", "used patch_file instead of rewrite", "checked env vars first"
+Reply with just the phrase — no preamble.`
+
+    try {
+      const pattern = (await ask(prompt, { model: 'haiku', maxTokens: 50 })).trim().toLowerCase()
+      if (pattern && pattern.length > 5) {
+        patterns.push(`✓ ${pattern}`)
+        console.log(`[GOD-SUCCESS] "${task.title.slice(0, 40)}" → ${pattern}`)
+      }
+    } catch {}
+  }
+
+  if (!patterns.length) return wisdom
+
+  return {
+    ...wisdom,
+    // Dedup against existing patterns — prevents 5× copies of the same insight
+    successPatterns: Array.from(new Set([...(wisdom.successPatterns ?? []), ...patterns])).slice(-20),
+  }
+}
+
 async function failurePostmortem(todos, wisdom) {
   if (wisdom.cycles % 3 !== 0) return wisdom
 
@@ -863,6 +923,7 @@ async function failurePostmortem(todos, wisdom) {
   await setGodThought(`Postmortem: analysing ${recentFailed.length} failures...`)
 
   const rootCauses = []
+  const onlineFixes = []
   for (const task of recentFailed) {
     const errorMsg = task.comments?.slice(-1)[0]?.text ?? ''
     const prompt = `Task: "${task.title.slice(0, 80)}"
@@ -877,6 +938,32 @@ Reply with just the phrase.`
       if (cause && cause.length > 3) {
         rootCauses.push(`! ${task.title.slice(0, 40)} → ${cause}`)
         console.log(`[GOD-POSTMORTEM] "${task.title.slice(0, 40)}" → ${cause}`)
+
+        // ── Error-to-solution web search ───────────────────────────────────
+        // Extract the most searchable chunk of the error and look it up.
+        // Jina returns relevant results whether the error is Supabase,
+        // Claude API, PostgreSQL, or generic node. Cheap + high-leverage.
+        const searchTerm = (errorMsg.match(/(error[:\s][^.\n]{15,120}|\b[A-Z_]{5,}\b[^.\n]{5,80})/i)?.[0] ?? errorMsg.slice(0, 100))
+          .replace(/["'`]/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim()
+
+        if (searchTerm.length > 20) {
+          try {
+            const hits = await webSearch(searchTerm)
+            if (hits && hits.length > 50) {
+              const distill = await ask(
+                `Error: "${searchTerm}"\n\nTop search results:\n${hits.slice(0, 2000)}\n\nIn one sentence (max 25 words), what's the most common fix for this error? Be specific. No fluff.`,
+                { model: 'haiku', maxTokens: 80 },
+              )
+              const clean = distill?.trim()
+              if (clean && clean.length > 10) {
+                onlineFixes.push(`[WEB-FIX] ${cause.slice(0, 50)} → ${clean.slice(0, 160)}`)
+                console.log(`[GOD-WEB-FIX] ${clean.slice(0, 120)}`)
+              }
+            }
+          } catch {}
+        }
       }
     } catch {}
   }
@@ -886,7 +973,10 @@ Reply with just the phrase.`
   return {
     ...wisdom,
     failurePostmortems: [...(wisdom.failurePostmortems ?? []), ...rootCauses].slice(-20),
-    avoidPatterns: [...new Set([...wisdom.avoidPatterns, ...rootCauses])].slice(-25),
+    avoidPatterns:      [...new Set([...wisdom.avoidPatterns, ...rootCauses])].slice(-25),
+    // Web-distilled fixes feed into regular lessons — specialists will see
+    // them the same way they see everything else God has learned
+    lessons:            [...wisdom.lessons, ...onlineFixes].slice(-35),
   }
 }
 
@@ -1739,6 +1829,9 @@ async function divineCycle() {
 
     // Postmortem: extract root causes from failed task comments
     wisdom = await failurePostmortem(todos, wisdom)
+
+    // Mirror the failure postmortem — also learn what made successes work
+    wisdom = await successPatternLearn(todos, wisdom)
 
     // Research the web for solutions to repeated failures
     wisdom = await webResearch(todos, wisdom)

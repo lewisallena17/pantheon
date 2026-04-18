@@ -63,6 +63,26 @@ export function dedupLessons(lessons, threshold = 0.7) {
  * Pure except for the console.log, which is kept as a hook for
  * observability and can be removed in tests.
  */
+/**
+ * Find lessons most relevant to a query string by Jaccard similarity.
+ * Used to replace "last-N by recency" with "top-N by relevance" —
+ * specialists get lessons that actually match the task they're about
+ * to work on.
+ *
+ * @param {string[]} lessons
+ * @param {string}   query     — task title or error description
+ * @param {number}   topN
+ * @returns {string[]}  — up to topN lessons, ordered by similarity desc
+ */
+export function findRelevantLessons(lessons, query, topN = 5) {
+  if (!lessons?.length || !query) return []
+  const queryTokens = lessonTokens(query)
+  if (queryTokens.size === 0) return lessons.slice(-topN)   // no content tokens; fall back
+  const scored = lessons.map(l => ({ lesson: l, score: jaccard(lessonTokens(l), queryTokens) }))
+  scored.sort((a, b) => b.score - a.score)
+  return scored.filter(s => s.score > 0.05).slice(0, topN).map(s => s.lesson)
+}
+
 export function pruneWisdom(w, { log } = { log: console }) {
   const beforeL = (w.lessons ?? []).length
   const beforeA = (w.avoidPatterns ?? []).length

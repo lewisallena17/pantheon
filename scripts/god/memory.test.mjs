@@ -5,7 +5,7 @@
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { lessonTokens, jaccard, dedupLessons, pruneWisdom } from './memory.mjs'
+import { lessonTokens, jaccard, dedupLessons, pruneWisdom, findRelevantLessons } from './memory.mjs'
 
 test('lessonTokens: strips punctuation, lowercases, removes short words', () => {
   const t = lessonTokens('The Schema must be queried before any UPDATE!')
@@ -100,4 +100,35 @@ test('pruneWisdom: handles missing fields gracefully', () => {
   assert.deepEqual(result.lessons, [])
   assert.deepEqual(result.avoidPatterns, [])
   assert.deepEqual(result.patterns, [])
+})
+
+test('findRelevantLessons: surfaces lessons matching the query topic', () => {
+  const lessons = [
+    'Database schema queries should include LIMIT clauses',
+    'User interface components need proper cleanup',
+    'Writing tests prevents regressions in production',
+    'Migration files should be numbered sequentially',
+  ]
+  const result = findRelevantLessons(lessons, 'database migration with proper schema', 2)
+  assert.equal(result.length, 2)
+  assert.ok(
+    result.some(l => l.toLowerCase().includes('database')) ||
+    result.some(l => l.toLowerCase().includes('migration')),
+    'should surface db/migration lessons',
+  )
+})
+
+test('findRelevantLessons: returns empty when nothing matches well', () => {
+  const lessons = [
+    'Completely unrelated topic about quantum physics',
+    'Another unrelated lesson about ancient history',
+  ]
+  const result = findRelevantLessons(lessons, 'build a react component', 5)
+  // No matches above threshold
+  assert.equal(result.length, 0)
+})
+
+test('findRelevantLessons: empty inputs return empty', () => {
+  assert.deepEqual(findRelevantLessons([], 'anything'), [])
+  assert.deepEqual(findRelevantLessons(['something'], ''), [])
 })

@@ -367,6 +367,18 @@ const FILE_TOOLS = [
     description: 'Run TypeScript compiler (tsc --noEmit) to verify no type errors. ALWAYS call after editing .tsx or .ts files.',
     input_schema: { type: 'object', properties: {} }
   },
+  {
+    name: 'git_log_file',
+    description: 'Look at past commits that touched a file. Useful before editing — reveals how similar fixes were solved before. Returns the last N commit subjects + summary diff stats.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        path:  { type: 'string', description: 'File path relative to the repo root' },
+        limit: { type: 'number', description: 'Max commits to return (default 10, max 30)' },
+      },
+      required: ['path']
+    }
+  },
 ]
 
 const ALL_TOOLS = [...DB_TOOLS, ...FILE_TOOLS]
@@ -742,6 +754,26 @@ async function executeTool(name, input, { readFiles, memory } = {}) {
     } catch (e) { return `tsc error: ${e.message}` }
   }
 
+  if (name === 'git_log_file') {
+    const { execSync } = await import('node:child_process')
+    const { path: p, limit } = input
+    if (!p || typeof p !== 'string') return 'git_log_file error: path is required'
+    const n = Math.min(30, Math.max(1, Number(limit) || 10))
+    // Guard against path traversal / space injection — reject anything with
+    // shell metacharacters. Forward slashes, hyphens, dots are fine.
+    if (/[^a-zA-Z0-9_\-./\\]/.test(p)) return `git_log_file error: unsafe path "${p}"`
+    try {
+      const out = execSync(
+        `git log -n ${n} --format="%h · %ai · %s" --shortstat -- "${p}"`,
+        { cwd: PROJECT_ROOT, encoding: 'utf8', timeout: 10_000 },
+      ).trim()
+      if (!out) return `No git history for ${p} (file may be new or untracked).`
+      return `Recent commits touching ${p}:\n\n${out.slice(0, 3000)}`
+    } catch (e) {
+      return `git_log_file error: ${(e.stderr ?? e.message).slice(0, 200)}`
+    }
+  }
+
   return `Unknown tool: ${name}`
 }
 
@@ -773,11 +805,25 @@ async function callWithRetry(fn, maxRetries = 4) {
 async function runAgentLoop(todo, agentName, model, poolName, opts = {}) {
   const memory       = loadAgentMemory(poolName)
   const sharedMemory = loadSharedMemory()
-  const poolLessons   = memory.lessons.slice(-5)
-  const poolSet       = new Set(poolLessons)
-  const globalLessons = sharedMemory.lessons.filter(l => !poolSet.has(l)).slice(-3)
+
+  // Pick lessons by SIMILARITY to the task title, not just recency. This
+  // means db tasks surface db-specific lessons, ui tasks surface ui ones,
+  // and generic lessons (about approvals, cost caps, etc.) only appear
+  // when they actually match the current work.
+  const { findRelevantLessons } = await import('./god/memory.mjs')
+  let poolLessons   = findRelevantLessons(memory.lessons,       todo.title, 5)
+  let globalLessons = findRelevantLessons(sharedMemory.lessons, todo.title, 3)
+
+  // Fall back to recency-based if similarity returned nothing (cold start)
+  if (poolLessons.length === 0)   poolLessons   = memory.lessons.slice(-5)
+  if (globalLessons.length === 0) globalLessons = sharedMemory.lessons.slice(-3)
+
+  // Dedup global against pool
+  const poolSet = new Set(poolLessons)
+  globalLessons = globalLessons.filter(l => !poolSet.has(l))
+
   const memoryBlock = (poolLessons.length + globalLessons.length) > 0
-    ? `\nAGENT MEMORY (${memory.taskCount} tasks this pool | ${sharedMemory.taskCount} total):\n${poolLessons.join('\n')}${globalLessons.length ? '\nGLOBAL: ' + globalLessons.join(' | ') : ''}\n`
+    ? `\nAGENT MEMORY (${memory.taskCount} tasks this pool | ${sharedMemory.taskCount} total, ranked by relevance):\n${poolLessons.join('\n')}${globalLessons.length ? '\nGLOBAL: ' + globalLessons.join(' | ') : ''}\n`
     : ''
 
   // Pre-flight validation (skip on retry — already have context)
