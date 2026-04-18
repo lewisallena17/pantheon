@@ -29,6 +29,22 @@ body {
   color: #cbd5e1;   /* slate-300 — higher contrast than slate-400 for readability */
 }
 
+/* ── Contrast overrides ─────────────────────────────────────────────────────
+   The dashboard has ~250 uses of text-slate-500/600/700 which are Tailwind's
+   darkest grays — fine on light backgrounds, unreadable on our slate-950.
+   Shift the whole dim-text palette up ~2 steps so labels, hints, and metadata
+   stay visible without having to touch every component.
+   Visual hierarchy preserved: 700 is still darker than 500.
+──────────────────────────────────────────────────────────────────────────── */
+.text-slate-700 { color: #64748b !important; }  /* was #334155 → slate-500 */
+.text-slate-600 { color: #94a3b8 !important; }  /* was #475569 → slate-400 */
+.text-slate-500 { color: #b6c0ce !important; }  /* was #64748b → between 400 & 300 */
+
+/* Also nudge up a few very common opacity-suffixed variants */
+.text-slate-700\/60 { color: rgba(100, 116, 139, 0.9) !important; }
+.text-slate-700\/50 { color: rgba(100, 116, 139, 0.75) !important; }
+.text-slate-600\/50 { color: rgba(148, 163, 184, 0.75) !important; }
+
 main {
   position: relative;
   z-index: 1;
