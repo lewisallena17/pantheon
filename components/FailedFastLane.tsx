@@ -147,7 +147,7 @@ export default function FailedFastLane({ todos, onRetried }: Props) {
   )
 
   const retryAll = useCallback(async () => {
-    if (bulkState === 'running' || failed.length === 0) return
+    if (bulkState === 'retrying' || failed.length === 0) return
     setBulkState('retrying')
     setBulkMsg('')
     try {

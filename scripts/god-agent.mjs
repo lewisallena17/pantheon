@@ -21,6 +21,7 @@ import { fileURLToPath } from 'node:url'
 import { dirname, join, resolve } from 'node:path'
 import { execSync } from 'node:child_process'
 import { notify, shouldNotify } from './lib-notify.mjs'
+import { pruneWisdom } from './god/memory.mjs'
 
 const __dirname   = dirname(fileURLToPath(import.meta.url))
 const PROJECT_ROOT = resolve(__dirname, '..')
@@ -441,61 +442,8 @@ function saveWisdom(w) {
   try { writeFileSync(WISDOM_PATH, JSON.stringify(w, null, 2), 'utf8') } catch {}
 }
 
-// ── Memory dedup ────────────────────────────────────────────────────────────
-// Lessons pile up as near-duplicates (same idea worded differently). This
-// compresses each lesson to a token set, then drops any lesson whose tokens
-// overlap >= 70% with a lesson already kept. Keeps the newest variant.
-function lessonTokens(s) {
-  return new Set(
-    String(s).toLowerCase()
-      .replace(/[^a-z0-9\s]/g, ' ')
-      .split(/\s+/)
-      .filter(w => w.length >= 4)
-      .filter(w => !STOP_WORDS.has(w))
-  )
-}
-const STOP_WORDS = new Set([
-  'this','that','with','from','have','been','were','they','their','there',
-  'will','would','about','which','your','when','what','then','than','some',
-  'task','tasks','agent','agents','make','sure','should','just','like',
-])
-
-function jaccard(a, b) {
-  if (a.size === 0 || b.size === 0) return 0
-  let inter = 0
-  for (const t of a) if (b.has(t)) inter++
-  return inter / (a.size + b.size - inter)
-}
-
-function dedupLessons(lessons, threshold = 0.7) {
-  const kept = []
-  const keptTokens = []
-  // Walk newest-first so we keep the most recent phrasing
-  for (let i = lessons.length - 1; i >= 0; i--) {
-    const lesson = lessons[i]
-    const toks = lessonTokens(lesson)
-    const isDup = keptTokens.some(kt => jaccard(kt, toks) >= threshold)
-    if (!isDup) {
-      kept.unshift(lesson)
-      keptTokens.unshift(toks)
-    }
-  }
-  return kept
-}
-
-function pruneWisdom(w) {
-  const beforeL = (w.lessons ?? []).length
-  const beforeA = (w.avoidPatterns ?? []).length
-  const beforeP = (w.patterns ?? []).length
-
-  w.lessons       = dedupLessons(w.lessons ?? [])
-  w.avoidPatterns = dedupLessons(w.avoidPatterns ?? [], 0.6)
-  w.patterns      = dedupLessons(w.patterns ?? [], 0.6)
-
-  const saved = (beforeL - w.lessons.length) + (beforeA - w.avoidPatterns.length) + (beforeP - w.patterns.length)
-  if (saved > 0) console.log(`[GOD-MEMORY] Deduped: -${saved} entries (lessons ${beforeL}→${w.lessons.length}, avoid ${beforeA}→${w.avoidPatterns.length}, patterns ${beforeP}→${w.patterns.length})`)
-  return w
-}
+// Memory dedup (lessonTokens, jaccard, dedupLessons, pruneWisdom) extracted
+// to ./god/memory.mjs — pure functions, unit-tested separately.
 
 // ── Survey ────────────────────────────────────────────────────────────────
 async function survey() {

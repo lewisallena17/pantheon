@@ -12,7 +12,9 @@
     "assign": "node scripts/assign-agent.mjs",
     "briefing": "node scripts/daily-briefing.mjs",
     "digest": "node scripts/weekly-digest.mjs",
-    "start:all": "pm2 start ecosystem.config.cjs"
+    "start:all": "pm2 start ecosystem.config.cjs",
+    "test": "node --test scripts/god/*.test.mjs",
+    "test:watch": "node --test --watch scripts/god/*.test.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.88.0",
@@ -20,6 +22,7 @@
     "@supabase/supabase-js": "^2.47.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "libsodium-wrappers": "^0.8.3",
     "lucide-react": "^1.8.0",
     "next": "14.2.18",
     "react": "^18",
