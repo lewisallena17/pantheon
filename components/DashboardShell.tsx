@@ -35,6 +35,7 @@ import CriticalAlertBanner from './CriticalAlertBanner'
 import MarketplaceListings from './MarketplaceListings'
 import SubscribersPanel from './SubscribersPanel'
 import NewsletterComposer from './NewsletterComposer'
+import FailedFastLane from './FailedFastLane'
 
 interface Props {
   initialTodos: Todo[]
@@ -104,6 +105,13 @@ export default function DashboardShell({ initialTodos }: Props) {
     [proposedCount],
   )
 
+  // Optimistic removal: mark retried tasks as pending in local state so the
+  // FailedFastLane collapses immediately without waiting for a Realtime event.
+  const handleRetried = useCallback((ids: string[]) => {
+    const idSet = new Set(ids)
+    setTodos(prev => prev.map(t => idSet.has(t.id) ? { ...t, status: 'pending' } : t))
+  }, [])
+
   const gap = compact ? 'space-y-2' : 'space-y-4'
 
   return (
@@ -138,6 +146,9 @@ export default function DashboardShell({ initialTodos }: Props) {
             <StatsBar todos={todos} />
           </div>
 
+          {/* ── Failed Fast-Lane: surface failed tasks immediately on Overview ── */}
+          <FailedFastLane todos={todos} onRetried={handleRetried} />
+
           <div id={SECTION_IDS.inbox}>
             <TaskInbox todos={todos} />
           </div>
@@ -169,6 +180,9 @@ export default function DashboardShell({ initialTodos }: Props) {
       {/* ── TASKS TAB ────────────────────────────────────────────────── */}
       {tab === 'tasks' && (
         <div className={gap}>
+          {/* ── Failed Fast-Lane: pinned above everything on Tasks tab too ── */}
+          <FailedFastLane todos={todos} onRetried={handleRetried} />
+
           <div id={SECTION_IDS.inbox}>
             <TaskInbox todos={todos} />
           </div>
@@ -228,22 +242,37 @@ export default function DashboardShell({ initialTodos }: Props) {
 
       {/* ── REVENUE TAB ──────────────────────────────────────────────── */}
       {tab === 'revenue' && (
-        <div id={SECTION_IDS.revenue} className={gap}>
-          <MarketplaceListings />
-          <SubscribersPanel />
-          <NewsletterComposer />
+        <div className={gap}>
           <RevenueTracker />
-          <DevToLiveStats />
           <RevenueAutomation />
+          <MarketplaceListings />
+
+          <Collapsible id="revenue-subscribers" title="Subscribers" defaultOpen={true}>
+            <SubscribersPanel />
+          </Collapsible>
+
+          <Collapsible id="revenue-newsletter" title="Newsletter Composer" defaultOpen={false}>
+            <NewsletterComposer />
+          </Collapsible>
         </div>
       )}
 
       {/* ── CODE TAB ─────────────────────────────────────────────────── */}
       {tab === 'code' && (
         <div className={gap}>
-          <GitHistory />
-          <ContributionGraph />
           <CIStatus />
+
+          <Collapsible id="code-git" title="Git History" defaultOpen={true}>
+            <GitHistory />
+          </Collapsible>
+
+          <Collapsible id="code-contrib" title="Contribution Graph" defaultOpen={true}>
+            <ContributionGraph />
+          </Collapsible>
+
+          <Collapsible id="code-devlive" title="Dev → Live Pipeline" defaultOpen={false}>
+            <DevToLiveStats />
+          </Collapsible>
         </div>
       )}
     </div>
