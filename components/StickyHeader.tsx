@@ -55,9 +55,9 @@ function HealthArc({ winRate }: { winRate: number | null }) {
       width="28" height="28"
       viewBox="0 0 28 28"
       className="flex-shrink-0"
-      title={`Win rate: ${Math.round(winRate)}%`}
       aria-label={`Win rate ${Math.round(winRate)} percent`}
     >
+      <title>{`Win rate: ${Math.round(winRate)}%`}</title>
       {/* Track */}
       <circle cx="14" cy="14" r={R} fill="none" stroke="rgb(30,41,59)" strokeWidth="3" />
       {/* Fill */}

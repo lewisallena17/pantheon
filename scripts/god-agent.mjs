@@ -1743,6 +1743,18 @@ async function divineCycle() {
       }
     }
 
+    // Generate an SEO topic landing page every 10 cycles.
+    // Page ships to Vercel on push — zero manual step. Compounds organic
+    // traffic: more pages → more Google impressions → more subscribers + sales.
+    if (wisdom.cycles % 10 === 0) {
+      try {
+        execSync('node scripts/seo-topic-generator.mjs', { cwd: PROJECT_ROOT, stdio: 'pipe', timeout: 90_000 })
+        console.log(`[GOD] 📝 Auto-SEO topic generated for cycle ${wisdom.cycles}`)
+      } catch (e) {
+        console.log(`[GOD] Auto-SEO failed: ${e.message?.slice(0, 100)}`)
+      }
+    }
+
     console.log(`\n[GOD] ══ Cycle ${wisdom.cycles} ══ (today: $${todaySpend.toFixed(4)} / $${DAILY_LIMIT_USD})`)
 
     // Gather intelligence
