@@ -117,6 +117,11 @@ Full setup guide: [INSTALL.md](./INSTALL.md)
 
 - **[Add yours here]** — email `lta.gb@outlook.com` with a link and I'll feature you.
 
+## Promote pantheon & earn
+
+Want to earn commission promoting Autonomous AI Task Dashboard? Apply to the affiliate program:
+👉 **[ogkush.lemonsqueezy.com/affiliates](https://ogkush.lemonsqueezy.com/affiliates)**
+
 ## Articles
 
 - [I Built an AI System That Runs Itself 24/7](https://dev.to/lewisallena17/i-built-an-ai-system-that-runs-itself-247-heres-what-actually-happened-1p17)
