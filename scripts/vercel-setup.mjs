@@ -37,6 +37,7 @@ const VARS_TO_SYNC = [
   'MAX_INPUT_TOKENS_PER_RUN',
   'GITHUB_REPO',
   'GITHUB_TOKEN',
+  'GOD_AUTO_APPROVE',
 ]
 
 const apiBase = `https://api.vercel.com/v10/projects/${projectId}/env?teamId=${orgId}`
