@@ -6,14 +6,14 @@ import type { TodoPriority, TodoStatus } from '@/types/todos'
 export async function POST(req: NextRequest) {
   const supabase = createAdminClient()
 
-  const body = await req.json() as {
+  const body = await req.json().catch(() => null) as {
     title: string
     priority?: TodoPriority
     status?: TodoStatus
     assigned_agent?: string | null
-  }
+  } | null
 
-  if (!body.title?.trim()) {
+  if (!body || !body.title?.trim()) {
     return NextResponse.json({ error: 'title is required' }, { status: 400 })
   }
 
@@ -39,14 +39,14 @@ export async function POST(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   const supabase = createAdminClient()
 
-  const body = await req.json() as {
+  const body = await req.json().catch(() => null) as {
     id: string
     status?: TodoStatus
     assigned_agent?: string | null
     priority?: TodoPriority
-  }
+  } | null
 
-  if (!body.id) {
+  if (!body || !body.id) {
     return NextResponse.json({ error: 'id is required' }, { status: 400 })
   }
 

@@ -83,7 +83,7 @@ export default function TraceTimeline({ taskId, agentName }: Props) {
 
     // Subscribe to new traces as they come in (task is in_progress)
     const channel = supabase
-      .channel(`traces-${taskId}`)
+      .channel(`traces-${taskId}-${Date.now()}`)
       .on('postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'traces', filter: `task_id=eq.${taskId}` },
         ({ new: row }) => {
@@ -92,7 +92,10 @@ export default function TraceTimeline({ taskId, agentName }: Props) {
       )
       .subscribe()
 
-    return () => { channel.unsubscribe() }
+    return () => {
+      channel.unsubscribe()
+      supabase.removeChannel(channel)
+    }
   }, [taskId])
 
   if (loading) {

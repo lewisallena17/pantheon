@@ -102,11 +102,13 @@ export async function POST(req: NextRequest) {
 }
 
 function unsubscribeFooter(): string {
+  const site = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://task-dashboard-sigma-three.vercel.app'
+  const host = site.replace(/^https?:\/\//, '').replace(/\/$/, '')
   return `
 <hr style="margin-top:32px;border:0;border-top:1px solid #334">
 <p style="font-family:monospace;font-size:11px;color:#64748b;text-align:center;">
   You're receiving this because you subscribed at
-  <a href="https://task-dashboard-sigma-three.vercel.app/subscribe" style="color:#0891b2">task-dashboard-sigma-three.vercel.app</a>.
+  <a href="${site}/subscribe" style="color:#0891b2">${host}</a>.
   <br>Reply with "unsubscribe" if you'd like out.
 </p>`
 }

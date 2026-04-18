@@ -60,12 +60,16 @@ function useLastTrace(taskId: string) {
       .eq('task_id', taskId)
       .then(({ count: c }: { count: number }) => setCount(c ?? 0))
 
-    const ch = supabase.channel(`act-${taskId}`)
+    // Unique channel name so rapid task switches don't collide with the previous channel
+    const ch = supabase.channel(`act-${taskId}-${Date.now()}`)
       .on('postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'traces', filter: `task_id=eq.${taskId}` },
         ({ new: row }) => { setLast(row as Trace); setCount(c => c + 1) }
       ).subscribe()
-    return () => { ch.unsubscribe() }
+    return () => {
+      ch.unsubscribe()
+      supabase.removeChannel(ch)
+    }
   }, [taskId])
 
   return { last, count }

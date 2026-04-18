@@ -69,8 +69,10 @@ export default function GodView({ todos }: Props) {
       if (data?.intent)  setIntent(data.intent as GodIntent)
     })
 
+    // Unique channel name per mount so hot-reload + tab navigation don't
+    // leave orphaned channels behind
     const channel = supabase
-      .channel('god-watch')
+      .channel(`god-watch-${Date.now()}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'god_status' }, ({ new: row }) => {
         if (row && 'thought' in row) {
           setThought(row.thought as string)
@@ -81,7 +83,10 @@ export default function GodView({ todos }: Props) {
         if (row && 'intent' in row && row.intent) setIntent(row.intent as GodIntent)
       })
       .subscribe()
-    return () => { channel.unsubscribe() }
+    return () => {
+      channel.unsubscribe()
+      supabase.removeChannel(channel)
+    }
   }, [])
 
   // Divine eye canvas
