@@ -54,3 +54,51 @@ dist/*.zip
 *.key
 
 .vercel
+
+# ── God-generated one-off debug artifacts ────────────────────────────────
+# The god agent occasionally writes query results / schema dumps / debug
+# scripts when diagnosing itself. These are useful ephemeral debugging
+# context but shouldn't pollute the public repo.
+
+# Root-level SHOUTY_CASE doc files (only uppercase + underscores allowed
+# are LICENSE and README.md which are above, so anything else is junk)
+/[A-Z][A-Z0-9_]*.md
+!/README.md
+!/LICENSE
+!/INSTALL.md
+!/CONTRIBUTING.md
+
+# One-off query / export / validation scripts (kept the pattern matching
+# god's naming conventions — its real utilities live under agent names)
+scripts/query-*.ts
+scripts/query-*.mjs
+scripts/query-*.sql
+scripts/execute-*.ts
+scripts/execute-*.mjs
+scripts/execute-bounded-*.ts
+scripts/export-*.ts
+scripts/export-*.mjs
+scripts/export-*.sql
+scripts/export-*.json
+scripts/export_*.sql
+scripts/export_*.json
+scripts/validate-*.ts
+scripts/validate-*.mjs
+scripts/validate-*.sql
+scripts/validate_*.sql
+scripts/test-*.ts
+scripts/test-*.mjs
+scripts/inspect-*.ts
+scripts/fetch-*.ts
+scripts/extract-*.ts
+scripts/schema-*.ts
+scripts/supabase-ddl*.sql
+
+# Ephemeral schema/query docs under docs/ (keep agent-patterns.md, INSTALL.md, etc.)
+docs/AGENT_EXEC*.md
+docs/DISMISS_*.md
+docs/SCHEMA_*.md
+docs/TODOS_*.md
+docs/*_schema.md
+docs/*-query-examples.sql
+docs/agent_exec_*

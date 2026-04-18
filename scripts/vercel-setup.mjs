@@ -41,6 +41,7 @@ const VARS_TO_SYNC = [
   'GOD_RATE_WINDOW_MIN',
   'GOD_RATE_CAP_USD',
   'GOD_RATE_PAUSE_MIN',
+  'NEXT_PUBLIC_SITE_URL',
 ]
 
 const apiBase = `https://api.vercel.com/v10/projects/${projectId}/env?teamId=${orgId}`
