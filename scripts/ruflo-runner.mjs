@@ -136,9 +136,11 @@ let costLog = { total: 0, byAgent: {}, sessions: [] }
 try { costLog = JSON.parse(readFileSync(COST_LOG_PATH, 'utf8')) } catch {}
 
 // ── Spend limits (override via .env.local) ────────────────────────────────
-const DAILY_LIMIT_USD   = parseFloat(process.env.DAILY_COST_LIMIT_USD  ?? '2.00')
-const MAX_TASK_COST_USD = parseFloat(process.env.MAX_TASK_COST_USD      ?? '0.10')
-const MAX_INPUT_TOKENS  = parseInt(  process.env.MAX_INPUT_TOKENS_PER_RUN ?? '80000', 10)
+// Fallback defaults match current .env.local settings.
+// If someone forks without .env.local these are sensible conservative values.
+const DAILY_LIMIT_USD   = parseFloat(process.env.DAILY_COST_LIMIT_USD  ?? '5.00')
+const MAX_TASK_COST_USD = parseFloat(process.env.MAX_TASK_COST_USD      ?? '0.15')
+const MAX_INPUT_TOKENS  = parseInt(  process.env.MAX_INPUT_TOKENS_PER_RUN ?? '120000', 10)
 
 // Global pause flag — set when credits are exhausted
 let creditsPaused = false

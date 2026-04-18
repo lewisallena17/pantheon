@@ -50,7 +50,8 @@ const RESEARCH_LOG_PATH = join(__dirname, 'god-research.json')
 const COST_LOG_PATH     = join(__dirname, 'cost-log.json')
 
 // ── Spend guard ────────────────────────────────────────────────────────────
-const DAILY_LIMIT_USD = parseFloat(process.env.DAILY_COST_LIMIT_USD ?? '2.00')
+// Fallback defaults match .env.local — safe values if env not loaded
+const DAILY_LIMIT_USD = parseFloat(process.env.DAILY_COST_LIMIT_USD ?? '5.00')
 
 function getGodTodaySpend() {
   try {
