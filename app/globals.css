@@ -10,49 +10,23 @@
   --green: #00ff88;
   --red: #ff3366;
   --orange: #ff6b00;
-  --bg: #020408;
-  --surface: #060d14;
-  --border: rgba(0, 212, 255, 0.15);
+  /* Solid slate-950 background — matches the Tailwind slate palette used
+     across the app, gives clean contrast with card borders + text, and
+     doesn't clash with any of the accent colours. */
+  --bg: #0b1120;
+  --surface: #111827;
+  --border: rgba(148, 163, 184, 0.12);
 }
 
 * {
   scrollbar-width: thin;
-  scrollbar-color: #00d4ff22 transparent;
+  scrollbar-color: #334155 transparent;
 }
 
 body {
   background-color: var(--bg);
   font-family: 'Share Tech Mono', monospace;
-  color: #94a3b8;
-}
-
-/* Animated grid background */
-body::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  background-image:
-    linear-gradient(rgba(0, 212, 255, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0, 212, 255, 0.03) 1px, transparent 1px);
-  background-size: 40px 40px;
-  pointer-events: none;
-  z-index: 0;
-}
-
-/* Scanline overlay */
-body::after {
-  content: '';
-  position: fixed;
-  inset: 0;
-  background: repeating-linear-gradient(
-    0deg,
-    transparent,
-    transparent 2px,
-    rgba(0, 0, 0, 0.08) 2px,
-    rgba(0, 0, 0, 0.08) 4px
-  );
-  pointer-events: none;
-  z-index: 0;
+  color: #cbd5e1;   /* slate-300 — higher contrast than slate-400 for readability */
 }
 
 main {
