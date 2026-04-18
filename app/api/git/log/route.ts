@@ -6,6 +6,10 @@ import path from 'node:path'
 const execAsync = promisify(exec)
 const REPO_ROOT = path.resolve(process.cwd())
 
+// Git commands don't work on Vercel's serverless runtime (no .git directory
+// in the build artifact). Return empty + a remote flag so the UI stays clean.
+const IS_SERVERLESS = Boolean(process.env.VERCEL || process.env.AWS_EXECUTION_ENV || process.env.NETLIFY)
+
 interface Commit {
   sha:       string
   shortSha:  string
@@ -18,6 +22,16 @@ interface Commit {
 }
 
 export async function GET(req: NextRequest) {
+  if (IS_SERVERLESS) {
+    return NextResponse.json({
+      commits: [],
+      currentBranch: 'main',
+      total: 0,
+      remote: true,
+      remoteNote: 'Git history is only available when the dashboard runs on your local PC (http://localhost:3000). This hosted copy can\'t read the repo.',
+    })
+  }
+
   const n = Math.min(100, Math.max(5, Number(req.nextUrl.searchParams.get('n') ?? 30)))
 
   try {

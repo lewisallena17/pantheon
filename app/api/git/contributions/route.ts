@@ -6,8 +6,34 @@ import path from 'node:path'
 const execAsync = promisify(exec)
 const REPO_ROOT = path.resolve(process.cwd())
 
+const IS_SERVERLESS = Boolean(process.env.VERCEL || process.env.AWS_EXECUTION_ENV || process.env.NETLIFY)
+
 // Returns a 365-day heatmap: { date: 'YYYY-MM-DD', commits: N, godCommits: N }
 export async function GET() {
+  if (IS_SERVERLESS) {
+    // Zero-filled 365 days with remote flag — component degrades gracefully
+    const days = []
+    const today = new Date()
+    for (let i = 364; i >= 0; i--) {
+      const d = new Date(today)
+      d.setDate(d.getDate() - i)
+      days.push({
+        date:       d.toISOString().slice(0, 10),
+        dayOfWeek:  d.getDay(),
+        commits:    0,
+        godCommits: 0,
+      })
+    }
+    return NextResponse.json({
+      days,
+      totalCommits:    0,
+      totalGodCommits: 0,
+      maxCommits:      0,
+      remote:          true,
+      remoteNote:      'Contribution graph only renders from local dashboard (git access required).',
+    })
+  }
+
   try {
     const sinceDate = new Date()
     sinceDate.setDate(sinceDate.getDate() - 365)

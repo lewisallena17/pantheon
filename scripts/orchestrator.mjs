@@ -141,16 +141,39 @@ async function maybeSpawnSwarm(todo) {
 // ── Main poll loop ────────────────────────────────────────────────────────
 const processing = new Set()
 
-async function dispatch() {
-  const { data, error } = await supabase
-    .from('todos')
-    .select('*')
-    .eq('status', 'pending')
-    .is('assigned_agent', null)
-    .order('created_at', { ascending: true })
-    .limit(10)
+// Suppresses repeated "fetch failed" errors when Supabase has a transient
+// network blip — logs once per 30s instead of every 20s poll.
+let lastPollErrorAt = 0
 
-  if (error) { console.error('[orchestrator] Poll error:', error.message); return }
+async function dispatch() {
+  let result
+  try {
+    result = await supabase
+      .from('todos')
+      .select('*')
+      .eq('status', 'pending')
+      .is('assigned_agent', null)
+      .order('created_at', { ascending: true })
+      .limit(10)
+  } catch (e) {
+    // Transient network error — Supabase did a reconnect or a brief DNS issue
+    const now = Date.now()
+    if (now - lastPollErrorAt > 30_000) {
+      console.error('[orchestrator] Poll network error:', e.message?.slice(0, 120))
+      lastPollErrorAt = now
+    }
+    return
+  }
+
+  const { data, error } = result
+  if (error) {
+    const now = Date.now()
+    if (now - lastPollErrorAt > 30_000) {
+      console.error('[orchestrator] Poll error:', error.message)
+      lastPollErrorAt = now
+    }
+    return
+  }
   if (!data?.length) return
 
   for (const todo of data) {
@@ -189,13 +212,33 @@ const CATEGORY_TIMEOUTS = {
   other:    STUCK_TIMEOUT_MIN,
 }
 
+let lastWatchdogErrorAt = 0
+
 async function reapStuckTasks() {
-  const { data, error } = await supabase
-    .from('todos')
-    .select('id, title, assigned_agent, task_category, updated_at, comments')
-    .eq('status', 'in_progress')
-    .limit(50)
-  if (error) { console.error('[watchdog] Poll error:', error.message); return }
+  let result
+  try {
+    result = await supabase
+      .from('todos')
+      .select('id, title, assigned_agent, task_category, updated_at, comments')
+      .eq('status', 'in_progress')
+      .limit(50)
+  } catch (e) {
+    const now = Date.now()
+    if (now - lastWatchdogErrorAt > 60_000) {
+      console.error('[watchdog] Poll network error:', e.message?.slice(0, 120))
+      lastWatchdogErrorAt = now
+    }
+    return
+  }
+  const { data, error } = result
+  if (error) {
+    const now = Date.now()
+    if (now - lastWatchdogErrorAt > 60_000) {
+      console.error('[watchdog] Poll error:', error.message)
+      lastWatchdogErrorAt = now
+    }
+    return
+  }
 
   const now = Date.now()
   for (const t of data ?? []) {

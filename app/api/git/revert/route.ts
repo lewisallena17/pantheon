@@ -6,10 +6,19 @@ import path from 'node:path'
 const execAsync = promisify(exec)
 const REPO_ROOT = path.resolve(process.cwd())
 
+const IS_SERVERLESS = Boolean(process.env.VERCEL || process.env.AWS_EXECUTION_ENV || process.env.NETLIFY)
+
 // POST /api/git/revert  — reverts a given commit SHA (creates a new revert commit)
 export async function POST(req: NextRequest) {
-  const body = await req.json() as { sha?: string }
-  const sha  = (body.sha ?? '').trim()
+  if (IS_SERVERLESS) {
+    return NextResponse.json({
+      ok: false,
+      error: 'Git revert only works from the local dashboard (http://localhost:3000). The hosted copy cannot write to the repo.',
+    }, { status: 503 })
+  }
+
+  const body = await req.json().catch(() => null) as { sha?: string } | null
+  const sha  = (body?.sha ?? '').trim()
 
   if (!/^[a-f0-9]{7,40}$/i.test(sha)) {
     return NextResponse.json({ error: 'invalid sha format' }, { status: 400 })

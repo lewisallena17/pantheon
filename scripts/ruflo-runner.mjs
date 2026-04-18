@@ -882,8 +882,11 @@ async function runAgentLoop(todo, agentName, model, poolName, opts = {}) {
     iterations++
 
     // Context compression at iteration 10
-    if (iterations === 10 && messages.length > 8) {
-      console.log(`[${agentName}] Compressing context at iteration 10...`)
+    // Compress earlier at iteration 7 — most tasks were hitting the input
+    // token cap around iter 8-10 and aborting with incomplete work. Moving
+    // compression earlier buys 2-3 more productive iterations.
+    if (iterations === 7 && messages.length > 6) {
+      console.log(`[${agentName}] Compressing context at iteration 7...`)
       const compressed = await compressMessages(messages)
       messages.length = 0
       messages.push(...compressed)
