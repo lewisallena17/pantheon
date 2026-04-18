@@ -20,16 +20,18 @@ const LABELS: Record<string, { label: string; emoji: string; color: string }> = 
 }
 
 export default function AgentControlPanel() {
-  const [agents, setAgents] = useState<AgentStatus[]>([])
-  const [busy,   setBusy]   = useState<string | null>(null)
-  const [error,  setError]  = useState<string | null>(null)
+  const [agents,     setAgents]     = useState<AgentStatus[]>([])
+  const [busy,       setBusy]       = useState<string | null>(null)
+  const [error,      setError]      = useState<string | null>(null)
+  const [remoteNote, setRemoteNote] = useState<string | null>(null)
 
   const refresh = useCallback(async () => {
     try {
       const r = await fetch('/api/agents/control', { cache: 'no-store' })
       if (!r.ok) throw new Error(await r.text())
-      const j = await r.json() as { agents: AgentStatus[] }
+      const j = await r.json() as { agents: AgentStatus[]; remote?: boolean; remoteNote?: string }
       setAgents(j.agents)
+      setRemoteNote(j.remote ? (j.remoteNote ?? null) : null)
       setError(null)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'fetch failed')
@@ -89,6 +91,12 @@ export default function AgentControlPanel() {
           </button>
         </div>
       </div>
+
+      {remoteNote && (
+        <div className="px-4 py-2 border-b border-cyan-900/40 bg-cyan-950/20 text-[10px] font-mono text-cyan-400">
+          ☁️ {remoteNote}
+        </div>
+      )}
 
       {error && (
         <div className="px-4 py-1.5 border-b border-red-900/40 bg-red-950/20 text-[10px] font-mono text-red-400">

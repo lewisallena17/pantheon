@@ -7,10 +7,34 @@ const execAsync = promisify(exec)
 const ALLOWED_NAMES = new Set(['god', 'ruflo-agents', 'ruflo-orchestrator', 'revenue', 'promote', 'all'])
 const ALLOWED_ACTIONS = new Set(['start', 'stop', 'restart', 'reload'])
 
+// PM2 lives on your local machine, not on Vercel's serverless runtime.
+// Detect "am I on Vercel/serverless?" and return a friendly no-op so the
+// dashboard UI handles it gracefully instead of showing a /bin/sh error.
+const IS_SERVERLESS = Boolean(
+  process.env.VERCEL ||
+  process.env.AWS_EXECUTION_ENV ||
+  process.env.NETLIFY,
+)
+
+function serverlessPayload() {
+  return {
+    agents:     [],
+    remote:     true,
+    remoteNote: 'This dashboard is running on Vercel — the agents run on your local PC. Agent controls only work when the dashboard is open at http://localhost:3000.',
+  }
+}
+
 export async function POST(req: NextRequest) {
-  const body = await req.json() as { action?: string; name?: string }
-  const action = (body.action ?? '').toLowerCase()
-  const name   = (body.name   ?? '').toLowerCase()
+  if (IS_SERVERLESS) {
+    return NextResponse.json({
+      ok:    false,
+      error: 'Agent controls run on your local PC only. Open http://localhost:3000 and try again.',
+    }, { status: 503 })
+  }
+
+  const body = await req.json().catch(() => null) as { action?: string; name?: string } | null
+  const action = (body?.action ?? '').toLowerCase()
+  const name   = (body?.name   ?? '').toLowerCase()
 
   if (!ALLOWED_ACTIONS.has(action)) {
     return NextResponse.json({ error: `action must be one of: ${Array.from(ALLOWED_ACTIONS).join(', ')}` }, { status: 400 })
@@ -36,6 +60,12 @@ export async function POST(req: NextRequest) {
 
 // GET /api/agents/control — returns current pm2 status
 export async function GET() {
+  if (IS_SERVERLESS) {
+    // Return 200 with an empty list so the UI renders cleanly (just shows
+    // "agents: n/a" in the sticky header) instead of throwing a red banner.
+    return NextResponse.json(serverlessPayload())
+  }
+
   try {
     const { stdout } = await execAsync('pm2 jlist', { timeout: 10_000 })
     const procs = JSON.parse(stdout || '[]') as Array<{
@@ -56,7 +86,17 @@ export async function GET() {
         })),
     })
   } catch (e) {
-    const err = e as { message?: string }
-    return NextResponse.json({ error: err.message ?? 'pm2 jlist failed' }, { status: 500 })
+    const err = e as { message?: string; stderr?: string }
+    // Fallback: if pm2 is installed but not running yet, return empty list
+    // so the UI doesn't show a red banner.
+    const msg = err.message ?? err.stderr ?? 'pm2 not available'
+    if (/command not found|No such file/.test(msg)) {
+      return NextResponse.json({
+        agents:     [],
+        remote:     true,
+        remoteNote: 'pm2 not installed on this runtime. Install pm2 locally or run the dashboard from your PC.',
+      })
+    }
+    return NextResponse.json({ error: msg, agents: [] }, { status: 200 })
   }
 }
