@@ -787,6 +787,8 @@ LESSONS: ${wisdom.lessons.slice(-5).join(' | ') || 'none'}
 Pick the BEST 2-4 proposals. Create up to 4 tasks per cycle to keep parallel agents busy.
 Reject any that reference things not in the tables/functions lists above.
 
+CRITICAL SIZING RULE: each task must be completable by a single specialist in 5-7 tool calls (~60 tokens × 7 ≈ 400 output + file reads). Split anything that would require multiple file rewrites + a migration + tests into SEPARATE tasks. Prefer "Read file X and identify pattern Y" over "Refactor files X, Y, Z and add tests". Large tasks hit the 120k input cap and waste agent time.
+
 Reply ONLY with JSON array:
 [{"title":"task title","priority":"high"}]`
 
