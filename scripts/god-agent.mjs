@@ -352,6 +352,13 @@ const WISDOM_DEFAULTS = {
     other:    { succeeded: 0, failed: 0 },
   },
   decisionHistory: [],     // last 20 cycle decisions for dashboard display
+
+  // ── Proactive self-improvement state ──────────────────────────────────────
+  goals: [],               // [{ id, text, targetCycle, createdCycle, progress: 0-1, rationale, status: 'active'|'completed'|'abandoned' }]
+  completedGoals: [],      // finished goals, capped at 20
+  selfReflections: [],     // meta-cognitive reflections, every 25 cycles
+  researchLog: [],         // patterns read from external repos + integration ideas
+  curiosityLog: [],        // exploratory topics God has explored
 }
 
 // ── 4. Proven safe-mode task templates ────────────────────────────────────
@@ -1427,6 +1434,270 @@ Reply ONLY with JSON: {"lessons": ["specific lesson 1", "specific lesson 2"]}`
   }
 }
 
+// ╔══════════════════════════════════════════════════════════════════════════╗
+// ║ PROACTIVE SELF-IMPROVEMENT                                               ║
+// ║                                                                          ║
+// ║ The loop below (divineCycle) is reactive — surveys failures, proposes    ║
+// ║ fixes. These four functions make God self-directed: goals it chose,      ║
+// ║ exploration when quiet, reflection every 25 cycles, research every 20.   ║
+// ╚══════════════════════════════════════════════════════════════════════════╝
+
+// ── (1) Goals system ─────────────────────────────────────────────────────────
+// Every 15 cycles God generates 1-3 self-chosen long-term goals. Each cycle it
+// proposes a task advancing an active goal. Goals auto-complete or expire.
+async function maintainGoals(wisdom) {
+  const now = wisdom.cycles
+
+  // Expire or complete goals
+  const active = []
+  const completed = [...wisdom.completedGoals ?? []]
+  for (const g of wisdom.goals ?? []) {
+    // Auto-expire if target cycle has passed without completion
+    if (g.targetCycle && now > g.targetCycle && g.progress < 1) {
+      completed.push({ ...g, status: 'abandoned', completedCycle: now })
+      continue
+    }
+    if (g.progress >= 1) {
+      completed.push({ ...g, status: 'completed', completedCycle: now })
+      continue
+    }
+    active.push(g)
+  }
+
+  // Generate new goals every 15 cycles if we have fewer than 3 active
+  if (now % 15 === 0 && active.length < 3) {
+    const existing = [...active, ...completed.slice(-10)].map(g => g.text).join(' | ')
+    const systemPrompt = `You are God, the orchestrator of a self-improving AI agent system. Propose 1-2 NEW long-term goals for yourself. Goals should be measurable and achievable in 10-30 cycles. Avoid generic goals — be specific to what you've seen in your own stats.
+
+Existing goals (don't repeat): ${existing || 'none'}
+
+Current state:
+- Cycle: ${now}
+- Success rate: ${Math.round((wisdom.taskStats.succeeded / Math.max(wisdom.taskStats.attempted, 1)) * 100)}%
+- Recent lessons: ${wisdom.lessons.slice(-5).join(' | ')}
+
+Respond with JSON only: { "goals": [{ "text": "...", "rationale": "...", "cyclesToComplete": 20 }] }`
+
+    try {
+      const response = await anthropic.messages.create({
+        model: MODELS.haiku,
+        max_tokens: 400,
+        messages: [{ role: 'user', content: systemPrompt }],
+      })
+      const text = response.content[0]?.type === 'text' ? response.content[0].text : ''
+      const match = text.match(/\{[\s\S]*\}/)
+      if (match) {
+        const { goals: newGoals } = JSON.parse(match[0])
+        for (const g of (newGoals ?? []).slice(0, 2)) {
+          active.push({
+            id: `goal-${now}-${Math.random().toString(36).slice(2, 6)}`,
+            text: g.text,
+            rationale: g.rationale ?? '',
+            progress: 0,
+            createdCycle: now,
+            targetCycle: now + (g.cyclesToComplete ?? 20),
+            status: 'active',
+          })
+          console.log(`[GOD-GOAL] New goal: "${g.text.slice(0, 80)}"`)
+        }
+      }
+    } catch (e) {
+      console.log(`[GOD-GOAL] Generation failed: ${e.message?.slice(0, 80)}`)
+    }
+  }
+
+  return {
+    ...wisdom,
+    goals: active.slice(0, 5),  // cap at 5 active
+    completedGoals: completed.slice(-20),
+  }
+}
+
+// Propose one task advancing the highest-priority active goal
+async function proposeGoalTask(wisdom) {
+  const active = (wisdom.goals ?? []).filter(g => g.status === 'active')
+  if (active.length === 0) return null
+
+  // Pick the goal closest to its target cycle (most urgent)
+  const goal = active.sort((a, b) => (a.targetCycle ?? 999) - (b.targetCycle ?? 999))[0]
+
+  try {
+    const response = await anthropic.messages.create({
+      model: MODELS.haiku,
+      max_tokens: 300,
+      messages: [{ role: 'user', content: `You are God working toward this self-chosen goal:
+
+GOAL: ${goal.text}
+WHY: ${goal.rationale}
+Progress: ${Math.round(goal.progress * 100)}%
+
+Propose ONE concrete, narrowly-scoped task that advances this goal. Must be executable by a specialist agent (db/ui/infra/analysis). Keep title under 100 chars.
+
+JSON only: { "title": "...", "priority": "low|medium|high", "category": "db|ui|infra|analysis" }` }],
+    })
+    const text = response.content[0]?.type === 'text' ? response.content[0].text : ''
+    const match = text.match(/\{[\s\S]*\}/)
+    if (!match) return null
+    const task = JSON.parse(match[0])
+    console.log(`[GOD-GOAL] → "${task.title.slice(0, 70)}" (for goal: ${goal.text.slice(0, 50)})`)
+    return { ...task, _goalId: goal.id }
+  } catch { return null }
+}
+
+// ── (2) Curiosity injector ───────────────────────────────────────────────────
+// When inbox is quiet (< 2 proposed/pending) and no recent failures, explore.
+async function curiosityPropose(todos, wisdom) {
+  const pendingish = todos.filter(t => t.status === 'proposed' || t.status === 'pending').length
+  const recentFail = todos.filter(t =>
+    t.status === 'failed' &&
+    (Date.now() - new Date(t.updated_at).getTime()) < 15 * 60_000
+  ).length
+  if (pendingish >= 3 || recentFail >= 2) return null  // noisy — skip
+
+  const recentCuriosity = (wisdom.curiosityLog ?? []).slice(-8).map(c => c.topic).join(' | ')
+
+  try {
+    const response = await anthropic.messages.create({
+      model: MODELS.haiku,
+      max_tokens: 350,
+      messages: [{ role: 'user', content: `You are God with a quiet inbox — nothing broken, nothing pending. Use this moment for exploration.
+
+Pick a capability you don't currently have, or an area you haven't investigated. Examples: semantic search, agent A/B testing, cost-per-outcome metrics, speaker-note generator, trending topics detector, image generation, sms alerts, etc.
+
+Avoid topics you've already explored: ${recentCuriosity || 'none'}
+
+Propose ONE small task to add or research this capability. JSON only:
+{ "topic": "short topic name", "title": "specific task title", "rationale": "one-line why", "priority": "low" }` }],
+    })
+    const text = response.content[0]?.type === 'text' ? response.content[0].text : ''
+    const match = text.match(/\{[\s\S]*\}/)
+    if (!match) return null
+    const c = JSON.parse(match[0])
+    console.log(`[GOD-CURIOSITY] 🔭 "${c.topic}" → ${c.title?.slice(0, 60)}`)
+    return {
+      task: { title: `[CURIOSITY] ${c.title}`, priority: c.priority ?? 'low', category: 'other' },
+      log: { topic: c.topic, rationale: c.rationale, at: new Date().toISOString(), cycle: wisdom.cycles },
+    }
+  } catch { return null }
+}
+
+// ── (3) Meta-reflection every 25 cycles ──────────────────────────────────────
+async function metaReflect(wisdom) {
+  if (wisdom.cycles % 25 !== 0 || wisdom.cycles === 0) return wisdom
+  console.log(`[GOD-META] 💭 Cycle ${wisdom.cycles} — self-reflection`)
+
+  const lessonsSummary = wisdom.lessons.slice(-15).join('\n- ')
+  const avoidSummary   = (wisdom.avoidPatterns ?? []).slice(-8).join('\n- ')
+  const goalsSummary   = (wisdom.goals ?? []).map(g => `${g.text} (${Math.round(g.progress * 100)}%)`).join('\n- ')
+  const statsLine = `attempted=${wisdom.taskStats.attempted} succeeded=${wisdom.taskStats.succeeded} failed=${wisdom.taskStats.failed}`
+
+  try {
+    const response = await anthropic.messages.create({
+      model: MODELS.sonnet,
+      max_tokens: 600,
+      messages: [{ role: 'user', content: `You are God performing a retrospective on YOURSELF.
+
+Current state:
+Cycle: ${wisdom.cycles}
+Stats: ${statsLine}
+Active goals:
+- ${goalsSummary || 'none'}
+
+Recent lessons:
+- ${lessonsSummary || 'none'}
+
+Avoided patterns:
+- ${avoidSummary || 'none'}
+
+Write a meta-reflection (3-5 sentences) about YOUR OWN behavior over the last 25 cycles:
+- What patterns are you falling into?
+- What's working that you should do more of?
+- What's one bold new idea you want to try?
+
+Then distill it to ONE single sentence "insight" that will be saved as a lesson.
+
+JSON only: { "reflection": "full 3-5 sentence retrospective", "insight": "one sentence distilled" }` }],
+    })
+    const text = response.content[0]?.type === 'text' ? response.content[0].text : ''
+    const match = text.match(/\{[\s\S]*\}/)
+    if (!match) return wisdom
+    const r = JSON.parse(match[0])
+    console.log(`[GOD-META] ✓ insight: ${r.insight?.slice(0, 120)}`)
+    return {
+      ...wisdom,
+      selfReflections: [...(wisdom.selfReflections ?? []).slice(-9), {
+        cycle: wisdom.cycles,
+        at: new Date().toISOString(),
+        reflection: r.reflection,
+        insight: r.insight,
+      }],
+      lessons: [...wisdom.lessons, `[META] ${r.insight}`].slice(-30),
+    }
+  } catch (e) {
+    console.log(`[GOD-META] failed: ${e.message?.slice(0, 80)}`)
+    return wisdom
+  }
+}
+
+// ── (4) Research → integrate loop every 20 cycles ────────────────────────────
+const INSPIRATION_REPOS = [
+  { name: 'langgraph',     url: 'https://raw.githubusercontent.com/langchain-ai/langgraph/main/README.md', theme: 'state-machine agents' },
+  { name: 'crewAI',        url: 'https://raw.githubusercontent.com/crewAIInc/crewAI/main/README.md',        theme: 'role-based multi-agent' },
+  { name: 'humanlayer',    url: 'https://raw.githubusercontent.com/humanlayer/humanlayer/main/README.md',   theme: 'async human-in-the-loop approvals' },
+  { name: 'instructor-js', url: 'https://raw.githubusercontent.com/instructor-ai/instructor-js/main/README.md', theme: 'typed LLM outputs with zod' },
+  { name: 'anthropic-cookbook', url: 'https://raw.githubusercontent.com/anthropics/anthropic-cookbook/main/README.md', theme: 'claude patterns' },
+]
+
+async function researchInspiration(wisdom) {
+  if (wisdom.cycles % 20 !== 0 || wisdom.cycles === 0) return wisdom
+
+  // Pick a repo we haven't recently read
+  const recent = new Set((wisdom.researchLog ?? []).slice(-3).map(r => r.repo))
+  const candidates = INSPIRATION_REPOS.filter(r => !recent.has(r.name))
+  const pick = candidates[Math.floor(Math.random() * candidates.length)] ?? INSPIRATION_REPOS[0]
+
+  console.log(`[GOD-RESEARCH] 📚 Reading ${pick.name}...`)
+  try {
+    const readme = await fetchUrl(pick.url).catch(() => null)
+    if (!readme) return wisdom
+
+    const response = await anthropic.messages.create({
+      model: MODELS.haiku,
+      max_tokens: 500,
+      messages: [{ role: 'user', content: `You are God looking for patterns to adapt into your own codebase.
+
+Below is the README of ${pick.name} — focused on ${pick.theme}.
+
+Extract ONE specific, concrete pattern that could improve your own system (Next.js dashboard + specialist agents + God orchestrator). Keep it actionable — something a specialist agent could implement.
+
+README:
+${readme.slice(0, 4000)}
+
+JSON only: { "pattern": "name of the pattern", "summary": "2 sentence description", "proposedTask": "specific task title to integrate this" }` }],
+    })
+    const text = response.content[0]?.type === 'text' ? response.content[0].text : ''
+    const match = text.match(/\{[\s\S]*\}/)
+    if (!match) return wisdom
+    const r = JSON.parse(match[0])
+
+    console.log(`[GOD-RESEARCH] ✓ pattern from ${pick.name}: "${r.pattern}"`)
+    return {
+      ...wisdom,
+      researchLog: [...(wisdom.researchLog ?? []).slice(-9), {
+        cycle: wisdom.cycles,
+        at: new Date().toISOString(),
+        repo: pick.name,
+        pattern: r.pattern,
+        summary: r.summary,
+        proposedTask: r.proposedTask,
+      }],
+    }
+  } catch (e) {
+    console.log(`[GOD-RESEARCH] ${pick.name} failed: ${e.message?.slice(0, 80)}`)
+    return wisdom
+  }
+}
+
 // ── Master divine cycle ────────────────────────────────────────────────────
 async function divineCycle() {
   try {
@@ -1567,6 +1838,37 @@ async function divineCycle() {
     } else {
       // Council decision: generate new tasks with skeptic + prereq validation
       newTasks = await councilThink(todos, schema, wisdom)
+    }
+
+    // ── Proactive self-improvement (AGI-lite layer) ─────────────────────────
+    // 1. Maintain self-chosen long-term goals
+    wisdom = await maintainGoals(wisdom)
+
+    // 2. Propose a task toward the most urgent active goal
+    const goalTask = await proposeGoalTask(wisdom)
+    if (goalTask) newTasks = [...newTasks, goalTask]
+
+    // 3. Curiosity-driven exploration when inbox is quiet
+    const curiosity = await curiosityPropose(todos, wisdom)
+    if (curiosity) {
+      newTasks = [...newTasks, curiosity.task]
+      wisdom = { ...wisdom, curiosityLog: [...(wisdom.curiosityLog ?? []).slice(-9), curiosity.log] }
+    }
+
+    // 4. Meta-reflection every 25 cycles (mutates wisdom.lessons + selfReflections)
+    wisdom = await metaReflect(wisdom)
+
+    // 5. Research external patterns every 20 cycles (adds to researchLog)
+    wisdom = await researchInspiration(wisdom)
+
+    // If research produced a proposedTask, offer it as a low-priority task
+    const lastResearch = (wisdom.researchLog ?? []).slice(-1)[0]
+    if (lastResearch && lastResearch.cycle === wisdom.cycles && lastResearch.proposedTask) {
+      newTasks = [...newTasks, {
+        title: `[RESEARCH: ${lastResearch.repo}] ${lastResearch.proposedTask}`.slice(0, 180),
+        priority: 'low',
+        category: 'other',
+      }]
     }
 
     // Self-improvement: add system improvement task if needed
