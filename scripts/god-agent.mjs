@@ -1935,15 +1935,42 @@ async function divineCycle() {
       }
     }
 
-    // Generate an SEO topic landing page every 10 cycles.
-    // Page ships to Vercel on push — zero manual step. Compounds organic
-    // traffic: more pages → more Google impressions → more subscribers + sales.
+    // Generate SEO topic landing pages every 10 cycles.
+    // 3 pages per run — with 60+ seed topics that's ~20 full cycles to cover
+    // them all, roughly 3-4 days of organic SEO fuel. Pages ship to Vercel
+    // on push — zero manual step. Compounds: more pages → Google ranks →
+    // more subscribers + Gumroad sales.
     if (wisdom.cycles % 10 === 0) {
       try {
-        execSync('node scripts/seo-topic-generator.mjs', { cwd: PROJECT_ROOT, stdio: 'pipe', timeout: 90_000 })
-        console.log(`[GOD] 📝 Auto-SEO topic generated for cycle ${wisdom.cycles}`)
+        execSync('node scripts/seo-topic-generator.mjs --batch 3', {
+          cwd: PROJECT_ROOT, stdio: 'pipe', timeout: 180_000,
+        })
+        console.log(`[GOD] 📝 Auto-SEO: 3 topics generated for cycle ${wisdom.cycles}`)
       } catch (e) {
         console.log(`[GOD] Auto-SEO failed: ${e.message?.slice(0, 100)}`)
+      }
+    }
+
+    // Affiliate link auto-injection every 70 cycles (~2.5h). Scans every
+    // topic page for bare mentions of Supabase/Vercel/Claude/Gumroad/etc
+    // and adds referral links where configured. Idempotent: skips pages
+    // already linked. Revenue compounds once pages rank + start getting
+    // traffic. Uses canonical URLs if AFFILIATE_* env vars aren't set.
+    if (wisdom.cycles % 70 === 0 && wisdom.cycles > 0) {
+      try {
+        const out = execSync('node scripts/affiliate-injector.mjs', {
+          cwd: PROJECT_ROOT, stdio: 'pipe', timeout: 30_000, encoding: 'utf8',
+        })
+        const m = out.match(/(\d+) links added across/)
+        if (m && Number(m[1]) > 0) {
+          console.log(`[GOD] 💰 Affiliate links injected: ${m[1]} across topic pages`)
+          // Auto-commit the changes so they ship
+          gitExec(`git add app/topics`)
+          gitExec(`git commit -m "revenue: affiliate link injection cycle ${wisdom.cycles}"`)
+          gitExec(`git push`)
+        }
+      } catch (e) {
+        console.log(`[GOD] Affiliate inject failed: ${e.message?.slice(0, 100)}`)
       }
     }
 

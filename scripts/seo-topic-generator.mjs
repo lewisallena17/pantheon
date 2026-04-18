@@ -36,7 +36,10 @@ for (const line of readFileSync(join(PROJECT_ROOT, '.env.local'), 'utf8').split(
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
 // Seed topics — God picks one not yet covered. Covers different keyword families.
+// Expanded to 60+ long-tail keywords spanning AI agents, Next.js, Supabase,
+// Claude, cost optimisation, security, debugging, and autonomous workflows.
 const SEED_TOPICS = [
+  // ── Core agent patterns ────────────────────────────────────────────────────
   { slug: 'how-to-build-autonomous-ai-agents-claude',        h1: 'How to Build Autonomous AI Agents with Claude' },
   { slug: 'self-improving-ai-orchestrator-pattern',           h1: 'The Self-Improving AI Orchestrator Pattern' },
   { slug: 'nextjs-14-supabase-multi-agent-systems',           h1: 'Next.js 14 + Supabase for Multi-Agent AI Systems' },
@@ -57,6 +60,66 @@ const SEED_TOPICS = [
   { slug: 'god-agent-prompt-engineering-patterns',            h1: 'Prompt Engineering Patterns for Orchestrator Agents' },
   { slug: 'autonomous-ai-revenue-engine',                     h1: 'Building an Autonomous AI Revenue Engine' },
   { slug: 'multi-agent-system-typescript-zero-to-one',        h1: 'Zero-to-One Multi-Agent AI System in TypeScript' },
+
+  // ── Next.js specific ───────────────────────────────────────────────────────
+  { slug: 'nextjs-14-app-router-ai-dashboard',                h1: 'Building an AI Dashboard with Next.js 14 App Router' },
+  { slug: 'nextjs-middleware-rate-limiting',                  h1: 'Rate Limiting API Routes in Next.js Middleware' },
+  { slug: 'nextjs-realtime-with-supabase',                    h1: 'Real-Time Features in Next.js with Supabase Realtime' },
+  { slug: 'nextjs-server-actions-ai-agents',                  h1: 'Next.js Server Actions for AI Agent Triggers' },
+  { slug: 'nextjs-vercel-cold-start-optimization',            h1: 'Reducing Next.js Cold Starts on Vercel' },
+  { slug: 'nextjs-typescript-strict-mode-agents',             h1: 'Strict-Mode TypeScript for AI Agent Projects' },
+
+  // ── Supabase specific ──────────────────────────────────────────────────────
+  { slug: 'supabase-rls-policies-ai-agents',                  h1: 'Supabase RLS Policies for AI Agent Writes' },
+  { slug: 'supabase-pgvector-agent-memory',                   h1: 'Using pgvector for AI Agent Semantic Memory' },
+  { slug: 'supabase-realtime-subscriptions-nextjs',           h1: 'Supabase Realtime Subscriptions in Next.js App Router' },
+  { slug: 'supabase-migrations-best-practices',               h1: 'Supabase Migrations — Numbering and Ordering' },
+  { slug: 'supabase-edge-functions-ai-agents',                h1: 'Supabase Edge Functions for AI Agent Webhooks' },
+  { slug: 'supabase-service-role-vs-anon-key',                h1: 'When to Use Supabase Service Role vs Anon Key' },
+
+  // ── Claude / Anthropic specific ────────────────────────────────────────────
+  { slug: 'claude-opus-vs-sonnet-vs-haiku-routing',           h1: 'Claude Opus vs Sonnet vs Haiku — Smart Model Routing' },
+  { slug: 'claude-api-tier-1-vs-tier-2-limits',               h1: 'Claude API Tier 1 vs Tier 2 Rate Limits' },
+  { slug: 'claude-prompt-caching-cost-reduction',             h1: 'Cutting Claude API Costs with Prompt Caching' },
+  { slug: 'claude-extended-thinking-agent-reasoning',         h1: 'Claude Extended Thinking for Agent Reasoning' },
+  { slug: 'claude-tool-use-parallel-execution',               h1: 'Parallel Tool Execution Patterns in Claude' },
+  { slug: 'claude-context-window-200k-management',            h1: 'Managing Claude\'s 200k Context Window at Scale' },
+  { slug: 'claude-citation-fact-checking',                    h1: 'Claude Citations for AI Agent Fact-Checking' },
+  { slug: 'claude-batch-api-cost-50-percent-savings',         h1: 'Claude Batch API — 50% Cost Reduction for Async Work' },
+
+  // ── Cost & ops ─────────────────────────────────────────────────────────────
+  { slug: 'llm-api-cost-tracking-dashboard',                  h1: 'Building an LLM API Cost Tracker Dashboard' },
+  { slug: 'ai-agent-context-compression-techniques',          h1: 'Context Compression for Long-Running AI Agents' },
+  { slug: 'reducing-ai-agent-token-spend',                    h1: 'Five Techniques for Reducing AI Agent Token Spend' },
+  { slug: 'ai-agent-observability-langfuse-logfire',          h1: 'AI Agent Observability with Langfuse and Logfire' },
+  { slug: 'vercel-ai-sdk-vs-raw-anthropic-api',               h1: 'Vercel AI SDK vs Raw Anthropic API — Pros and Cons' },
+  { slug: 'ai-agent-debugging-trace-replay',                  h1: 'Debugging AI Agents with Trace Replay' },
+
+  // ── Security ───────────────────────────────────────────────────────────────
+  { slug: 'ai-agent-prompt-injection-defense',                h1: 'Defending AI Agents Against Prompt Injection' },
+  { slug: 'owasp-top-10-for-ai-agents',                       h1: 'OWASP Top 10 Applied to AI Agent Systems' },
+  { slug: 'securing-llm-tool-calls-production',               h1: 'Securing LLM Tool Calls in Production' },
+  { slug: 'ai-agent-rate-limiting-circuit-breakers',          h1: 'Rate Limiting and Circuit Breakers for AI Agents' },
+
+  // ── Autonomous workflows ───────────────────────────────────────────────────
+  { slug: 'ai-agent-writes-own-code-auto-revert',             h1: 'AI Agents That Edit Their Own Code Safely' },
+  { slug: 'autonomous-dev-to-article-writer',                 h1: 'Building an Autonomous Dev.to Article Writer' },
+  { slug: 'ai-agent-reddit-auto-post-oauth',                  h1: 'Auto-Posting to Reddit from an AI Agent via OAuth' },
+  { slug: 'autonomous-seo-landing-page-farm',                 h1: 'Building an Autonomous SEO Landing Page Farm' },
+  { slug: 'ai-agent-self-directed-goals',                     h1: 'Giving AI Agents Self-Directed Goals' },
+  { slug: 'ai-agent-email-newsletter-resend',                 h1: 'Autonomous Email Newsletters with Resend and AI' },
+
+  // ── Developer experience ───────────────────────────────────────────────────
+  { slug: 'command-palette-ctrl-k-dashboard',                 h1: 'Adding a Command Palette (Ctrl+K) to Your Dashboard' },
+  { slug: 'pixel-art-ui-for-developer-tools',                 h1: 'Pixel-Art UI for Developer Dashboards' },
+  { slug: 'github-actions-nightly-supabase-backup',           h1: 'Nightly Supabase Backups via GitHub Actions' },
+  { slug: 'jaccard-similarity-ai-agent-retrieval',            h1: 'Jaccard Similarity for AI Agent Lesson Retrieval' },
+
+  // ── Indie dev economics ────────────────────────────────────────────────────
+  { slug: 'indie-dev-autonomous-ai-side-project',             h1: 'The Indie Dev Playbook for Autonomous AI Side Projects' },
+  { slug: 'ai-agent-passive-income-seo-strategy',             h1: 'Passive Income Through AI-Generated SEO Content' },
+  { slug: 'gumroad-vs-lemon-squeezy-vs-stripe-for-devs',      h1: 'Gumroad vs Lemon Squeezy vs Stripe — Which to Pick' },
+  { slug: 'selling-ai-agent-code-gumroad',                    h1: 'Selling AI Agent Code on Gumroad — A Playbook' },
 ]
 
 const SITE_URL  = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://task-dashboard-sigma-three.vercel.app'
