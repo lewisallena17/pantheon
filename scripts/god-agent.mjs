@@ -108,6 +108,60 @@ function verifyCommit(baseline) {
   }
 }
 
+// ── Review-before-ship (inspired by gstack /review) ────────────────────────
+// TypeScript check catches *compile* errors. This catches *logic* bugs,
+// security issues, missing error handling — the stuff that passes tsc
+// but blows up at runtime. Runs Haiku over the diff after verify passes,
+// only blocks commit if severity is 'critical'.
+async function reviewDiff(sha) {
+  try {
+    // Cap diff size — very large diffs aren't worth reviewing and blow tokens
+    const diff = gitExec(`git show --format="" --no-color --stat ${sha}`)?.slice(0, 500) ?? ''
+    const contents = gitExec(`git show --format="" --no-color ${sha}`)?.slice(0, 8000) ?? ''
+    if (contents.length < 100) return { ok: true, findings: [] }  // trivial diff — skip
+
+    const response = await anthropic.messages.create({
+      model: MODELS.haiku,
+      max_tokens: 500,
+      messages: [{ role: 'user', content: `You are a Staff Engineer doing a code review on an autonomous agent's commit.
+
+Look for:
+- Logic bugs that would compile but fail at runtime (null access, wrong conditions, off-by-one)
+- Missing error handling on fetch/exec/db calls
+- Security issues (SQL injection, path traversal, unsanitized user input, exposed secrets)
+- Dead / unreachable code
+
+IGNORE: style, naming, formatting, minor TS complaints. Only flag what would cause a real bug in production.
+
+Commit stat:
+${diff}
+
+Commit contents:
+${contents}
+
+Reply ONLY with JSON:
+{
+  "severity": "ok" | "minor" | "major" | "critical",
+  "findings": ["one line per finding, specific and actionable"]
+}
+
+Use "critical" ONLY for things that would data-loss, auth-bypass, or take the system down. "major" for definite bugs. "minor" for suspect code. "ok" for clean commits.` }],
+    })
+    const text = response.content[0]?.type === 'text' ? response.content[0].text : ''
+    const match = text.match(/\{[\s\S]*\}/)
+    if (!match) return { ok: true, findings: [] }
+    const r = JSON.parse(match[0])
+    return {
+      ok:       r.severity !== 'critical',
+      severity: r.severity,
+      findings: r.findings ?? [],
+    }
+  } catch (e) {
+    console.log(`[GOD-REVIEW] skipped (${e.message?.slice(0, 80)})`)
+    return { ok: true, findings: [] }  // fail-open: don't block on reviewer errors
+  }
+}
+
 // ── Git auto-commit ────────────────────────────────────────────────────────
 function gitExec(cmd) {
   try {
@@ -156,6 +210,26 @@ async function autoCommit({ cycle, source, summary, files }) {
       const revertSha = gitExec('git rev-parse --short HEAD')
       await notify('error', `God edit auto-reverted`, `Cycle ${cycle} (${source}): ${verifyResult.reason}\nReverted ${sha} → ${revertSha}`)
       return { sha: revertSha, branch: targetBranch, reverted: true, reason: verifyResult.reason }
+    }
+  }
+
+  // ── Logic / security review (Staff Engineer pass) ────────────────────────
+  // Only runs when GOD_REVIEW is explicitly enabled — adds ~\$0.005/edit.
+  // Uses Haiku to catch bugs tsc missed (logic errors, unhandled promises,
+  // injection risks). Critical findings → revert. Minor/major → logged.
+  if (process.env.GOD_REVIEW === 'true') {
+    const review = await reviewDiff(sha)
+    const findings = review.findings ?? []
+    if (findings.length > 0) {
+      console.log(`[GOD-REVIEW] ${review.severity}: ${findings.slice(0, 2).join(' | ')}`)
+    }
+    if (!review.ok) {
+      console.log(`[GOD-VERIFY] Reviewer flagged CRITICAL — reverting ${sha}`)
+      gitExec(`git revert --no-edit ${sha}`)
+      const revertSha = gitExec('git rev-parse --short HEAD')
+      await notify('error', 'God edit auto-reverted (code review)',
+        `Cycle ${cycle} (${source}): Staff Engineer reviewer flagged critical issues:\n${findings.join('\n')}\nReverted ${sha} → ${revertSha}`)
+      return { sha: revertSha, branch: targetBranch, reverted: true, reason: 'reviewer: ' + findings[0] }
     }
   }
 
@@ -1739,6 +1813,83 @@ JSON only: { "pattern": "name of the pattern", "summary": "2 sentence descriptio
   }
 }
 
+// ── (6) Security audit cycle (inspired by gstack /cso) ─────────────────────
+// Every 30 cycles, run an OWASP/STRIDE-style audit on the recent commits.
+// Checks the last 10 commits' diff for: exposed secrets, SQL injection,
+// missing auth, path traversal, unsafe exec, unsanitized user input.
+// Findings get written to wisdom.lessons tagged [SEC] so future tasks
+// see them + optionally notified if severity is high.
+async function securityAudit(wisdom) {
+  if (wisdom.cycles % 30 !== 0 || wisdom.cycles === 0) return wisdom
+  if (!hasGitRepo()) return wisdom
+
+  console.log(`[GOD-SEC] 🔒 Security audit (cycle ${wisdom.cycles})`)
+
+  const recentDiff = gitExec('git log -n 10 --format="=== %h %s ===" -p --no-color 2>&1 | head -500')
+  if (!recentDiff || recentDiff.length < 100) return wisdom
+
+  try {
+    const response = await anthropic.messages.create({
+      model: MODELS.haiku,
+      max_tokens: 700,
+      messages: [{ role: 'user', content: `You are a Chief Security Officer reviewing an autonomous agent's recent commits for security issues.
+
+Focus on OWASP Top 10 + common LLM-agent pitfalls:
+- Exposed secrets / API keys committed to source
+- SQL injection (raw concatenation, missing parameterization)
+- Path traversal (unsanitized user path inputs)
+- Unsafe exec / shell injection
+- Missing auth on mutation endpoints
+- RLS bypass patterns
+- Rate limits stripped or weakened
+- Unsanitized user content in HTML (XSS)
+
+ONLY report issues you're >80% confident about with a concrete exploit scenario. False positives waste cycles. Skip style/formatting.
+
+Recent commits:
+${recentDiff.slice(0, 6000)}
+
+Reply ONLY with JSON:
+{
+  "issues": [
+    { "severity": "high|medium|low", "area": "brief area", "risk": "one-sentence exploit scenario", "file": "suspected file or 'multiple'" }
+  ]
+}` }],
+    })
+    const text = response.content[0]?.type === 'text' ? response.content[0].text : ''
+    const match = text.match(/\{[\s\S]*\}/)
+    if (!match) return wisdom
+    const { issues = [] } = JSON.parse(match[0])
+
+    if (issues.length === 0) {
+      console.log(`[GOD-SEC] ✓ Clean — no security findings`)
+      return wisdom
+    }
+
+    const formatted = issues.map(i => `[SEC-${i.severity?.toUpperCase() ?? 'MED'}] ${i.area}: ${i.risk}`.slice(0, 200))
+    for (const f of formatted) console.log(`[GOD-SEC] ${f}`)
+
+    // Ping if any high-severity
+    const hasHigh = issues.some(i => i.severity === 'high')
+    if (hasHigh && shouldNotify('sec-high', 60 * 6)) {
+      await notify('error', 'Security audit found high-severity issue', formatted.filter(f => f.includes('[SEC-HIGH]')).join('\n'))
+    }
+
+    return {
+      ...wisdom,
+      lessons: [...wisdom.lessons, ...formatted].slice(-35),
+      securityFindings: [...(wisdom.securityFindings ?? []).slice(-19), {
+        cycle: wisdom.cycles,
+        at: new Date().toISOString(),
+        issues,
+      }],
+    }
+  } catch (e) {
+    console.log(`[GOD-SEC] audit failed: ${e.message?.slice(0, 80)}`)
+    return wisdom
+  }
+}
+
 // ── Master divine cycle ────────────────────────────────────────────────────
 async function divineCycle() {
   try {
@@ -1916,6 +2067,9 @@ async function divineCycle() {
 
     // 5. Research external patterns every 20 cycles (adds to researchLog)
     wisdom = await researchInspiration(wisdom)
+
+    // 6. Security audit every 30 cycles (OWASP/STRIDE-style)
+    wisdom = await securityAudit(wisdom)
 
     // If research produced a proposedTask, offer it as a low-priority task
     const lastResearch = (wisdom.researchLog ?? []).slice(-1)[0]
