@@ -20,6 +20,10 @@ const TOOL_ICONS: Record<string, string> = {
   web_search: '🌐', fetch_url: '🔗', task_complete: '✅',
 }
 
+/** Stale threshold in milliseconds — tasks idle longer than this get flagged */
+const STALE_MS = 5 * 60 * 1000   // 5 minutes
+const WARN_MS  = 2 * 60 * 1000   // 2 minutes — amber caution zone
+
 function LiveTimer({ since }: { since: string }) {
   const [elapsed, setElapsed] = useState('')
   useEffect(() => {
@@ -37,6 +41,42 @@ function LiveTimer({ since }: { since: string }) {
     return () => clearInterval(t)
   }, [since])
   return <>{elapsed}</>
+}
+
+/**
+ * StaleBadge — amber/red pill that appears when a task has been `in_progress`
+ * for a suspiciously long time without any update. Lets the operator spot hung
+ * agents at a glance without digging into traces.
+ */
+function StaleBadge({ updatedAt }: { updatedAt: string }) {
+  const [ageMs, setAgeMs] = useState(0)
+
+  useEffect(() => {
+    function tick() {
+      setAgeMs(Date.now() - new Date(updatedAt).getTime())
+    }
+    tick()
+    const t = setInterval(tick, 15_000)   // re-check every 15 s is plenty
+    return () => clearInterval(t)
+  }, [updatedAt])
+
+  if (ageMs < WARN_MS) return null
+
+  const isStale = ageMs >= STALE_MS
+  return (
+    <span
+      className={`
+        text-[9px] font-mono font-bold px-1.5 py-0.5 rounded border flex-shrink-0 tracking-wider
+        ${isStale
+          ? 'bg-red-950/50 border-red-700/50 text-red-300 animate-pulse'
+          : 'bg-amber-950/40 border-amber-700/40 text-amber-400'
+        }
+      `}
+      title={`Last update ${Math.round(ageMs / 60000)} min ago — agent may be hung`}
+    >
+      {isStale ? '⚠ STALE' : '· SLOW'}
+    </span>
+  )
 }
 
 function useLastTrace(taskId: string) {
@@ -89,7 +129,7 @@ function ActiveRow({ todo }: { todo: Todo }) {
 
   return (
     <div className="flex items-center gap-3 px-3 py-2 min-w-0">
-      {/* Pulse */}
+      {/* Pulse dot */}
       <span className="h-1.5 w-1.5 rounded-full bg-cyan-500 animate-pulse flex-shrink-0" />
 
       {/* Agent pool */}
@@ -101,6 +141,9 @@ function ActiveRow({ todo }: { todo: Todo }) {
       <span className="text-xs font-mono text-slate-300 truncate flex-1 min-w-0">
         {todo.title}
       </span>
+
+      {/* Stale badge — shown when the task hasn't been updated recently */}
+      <StaleBadge updatedAt={todo.updated_at} />
 
       {/* Last tool */}
       {lastLabel && (
@@ -116,8 +159,14 @@ function ActiveRow({ todo }: { todo: Todo }) {
         </span>
       )}
 
-      {/* Timer */}
-      <span className="text-xs font-mono text-cyan-500 tabular-nums flex-shrink-0">
+      {/* Elapsed timer — coloured by staleness */}
+      <span className={`text-xs font-mono tabular-nums flex-shrink-0 ${
+        Date.now() - new Date(todo.updated_at).getTime() >= STALE_MS
+          ? 'text-red-400'
+          : Date.now() - new Date(todo.updated_at).getTime() >= WARN_MS
+            ? 'text-amber-400'
+            : 'text-cyan-500'
+      }`}>
         <LiveTimer since={todo.updated_at} />
       </span>
     </div>
@@ -126,6 +175,11 @@ function ActiveRow({ todo }: { todo: Todo }) {
 
 export default function ActiveAgent({ todos }: Props) {
   const active = todos.filter(t => t.status === 'in_progress')
+
+  // Count stale tasks for the header summary
+  const staleCount = active.filter(
+    t => Date.now() - new Date(t.updated_at).getTime() >= STALE_MS
+  ).length
 
   if (active.length === 0) {
     return (
@@ -137,20 +191,37 @@ export default function ActiveAgent({ todos }: Props) {
   }
 
   // Show up to 6 rows before scrolling (~192 px at 32 px/row).
-  // With 21 active tasks this gives a useful window without dominating the page.
   const MAX_VISIBLE = 6
   const visibleHeight = Math.min(active.length, MAX_VISIBLE) * 36
 
   return (
-    <div className="rounded border border-cyan-900/30 bg-black/30 overflow-hidden">
+    <div className={`rounded border overflow-hidden ${
+      staleCount > 0
+        ? 'border-amber-900/50 bg-black/30'
+        : 'border-cyan-900/30 bg-black/30'
+    }`}>
       {/* Header */}
-      <div className="flex items-center gap-2 px-3 py-1.5 border-b border-cyan-900/20 bg-black/40">
+      <div className={`flex items-center gap-2 px-3 py-1.5 border-b bg-black/40 ${
+        staleCount > 0 ? 'border-amber-900/30' : 'border-cyan-900/20'
+      }`}>
         <span className="h-1.5 w-1.5 rounded-full bg-cyan-500 animate-pulse flex-shrink-0" />
         <span className="text-xs font-mono text-cyan-700 tracking-widest">RUNNING NOW</span>
-        {/* Count badge */}
+
+        {/* Active count badge */}
         <span className="ml-1 text-[10px] font-mono bg-cyan-900/40 text-cyan-400 border border-cyan-700/40 rounded px-1.5 py-0.5 tabular-nums">
           {active.length}
         </span>
+
+        {/* Stale count badge — draws attention when agents go dark */}
+        {staleCount > 0 && (
+          <span
+            className="text-[10px] font-mono bg-amber-950/50 text-amber-300 border border-amber-700/50 rounded px-1.5 py-0.5 tabular-nums animate-pulse"
+            title={`${staleCount} task${staleCount !== 1 ? 's' : ''} with no activity for ≥5 min — agents may be hung`}
+          >
+            ⚠ {staleCount} stale
+          </span>
+        )}
+
         {active.length > MAX_VISIBLE && (
           <span className="text-[10px] font-mono text-slate-700 ml-auto">
             scroll ↕ {active.length - MAX_VISIBLE} more
