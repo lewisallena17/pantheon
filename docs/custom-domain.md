@@ -78,7 +78,7 @@ After the domain is live:
 ```powershell
 cd C:\Users\LTAGB\task-dashboard
 $env:SUBSCRIBE_URL = "https://pantheon.dev/subscribe"
-$env:GUMROAD_URL   = "https://lewisallena17.gumroad.com/l/your-product"
+$env:GUMROAD_URL   = "https://ltagb.gumroad.com/l/gferg"
 node scripts/update-devto-cta.mjs
 ```
 

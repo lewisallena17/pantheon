@@ -103,7 +103,7 @@ Full setup guide: [INSTALL.md](./INSTALL.md)
 | Tier | Price | What you get |
 |---|---|---|
 | **Open Source (this repo)** | Free | Everything visible here. Roll your own deploy. |
-| **Complete Starter Kit** | [$39 on Gumroad](https://lewisallena17.gumroad.com) | Source code + deployment guide + pre-configured `.env.example` + priority email support |
+| **Complete Starter Kit** | [$39 on Gumroad](https://ltagb.gumroad.com/l/gferg) | Source code + deployment guide + pre-configured `.env.example` + priority email support |
 | **Done-for-you setup** | $297 one-time | I personally wire up your Supabase, env vars, deploy to Vercel, and hand you the URL |
 | **Custom builds** | from $1500 | Modify agent roles for your team's workflow. Email me. |
 

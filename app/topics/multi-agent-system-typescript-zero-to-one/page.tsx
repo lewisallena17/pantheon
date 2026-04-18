@@ -114,7 +114,7 @@ create policy "Users see own runs"
           <h3 className="text-lg font-bold text-cyan-300 mb-2">Get the full starter kit</h3>
           <p className="text-slate-300 mb-4 text-sm">{`Clone the Pantheon starter kit at github.com/lewisallena17/pantheon, follow the README to wire up your Claude API key and Supabase project, and ship your first zero-to-one multi-agent AI system in TypeScript this week — not this quarter.`}</p>
           <div className="flex flex-wrap gap-3 justify-center">
-            <a href="https://lewisallena17.gumroad.com" target="_blank" rel="noopener noreferrer"
+            <a href="https://ltagb.gumroad.com/l/gferg" target="_blank" rel="noopener noreferrer"
                className="inline-block text-sm font-mono px-4 py-2 rounded border border-amber-700 bg-amber-950/40 text-amber-300 hover:bg-amber-950/60">
               🛒 Buy on Gumroad — $39
             </a>

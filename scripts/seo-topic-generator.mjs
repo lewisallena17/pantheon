@@ -61,7 +61,7 @@ const SEED_TOPICS = [
 
 const SITE_URL  = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://task-dashboard-sigma-three.vercel.app'
 const REPO_URL  = process.env.GITHUB_REPO_URL     ?? 'https://github.com/lewisallena17/pantheon'
-const GUMROAD   = process.env.GUMROAD_URL         ?? 'https://lewisallena17.gumroad.com'
+const GUMROAD   = process.env.GUMROAD_URL         ?? 'https://ltagb.gumroad.com/l/gferg'
 
 function getExistingSlugs() {
   if (!existsSync(TOPICS_DIR)) return new Set()

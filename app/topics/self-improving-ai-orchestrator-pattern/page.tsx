@@ -113,7 +113,7 @@ export async function logRun(run: {
           <h3 className="text-lg font-bold text-cyan-300 mb-2">Get the full starter kit</h3>
           <p className="text-slate-300 mb-4 text-sm">{`Implement the Self-Improving AI Orchestrator Pattern today by forking the Pantheon starter kit at github.com/lewisallena17/pantheon — ship a Claude agent system that measurably improves itself on every run.`}</p>
           <div className="flex flex-wrap gap-3 justify-center">
-            <a href="https://lewisallena17.gumroad.com" target="_blank" rel="noopener noreferrer"
+            <a href="https://ltagb.gumroad.com/l/gferg" target="_blank" rel="noopener noreferrer"
                className="inline-block text-sm font-mono px-4 py-2 rounded border border-amber-700 bg-amber-950/40 text-amber-300 hover:bg-amber-950/60">
               🛒 Buy on Gumroad — $39
             </a>

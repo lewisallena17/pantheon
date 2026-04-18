@@ -87,7 +87,7 @@ export async function POST(req: Request) {
           <h3 className="text-lg font-bold text-cyan-300 mb-2">Get the full starter kit</h3>
           <p className="text-slate-300 mb-4 text-sm">{`The real cost of running autonomous AI agents 24/7 is manageable if you prune context aggressively, offload loops to persistent workers, and instrument token usage from the start — grab the Pantheon starter kit at github.com/lewisallena17/pantheon and ship a cost-efficient agent system today.`}</p>
           <div className="flex flex-wrap gap-3 justify-center">
-            <a href="https://lewisallena17.gumroad.com" target="_blank" rel="noopener noreferrer"
+            <a href="https://ltagb.gumroad.com/l/gferg" target="_blank" rel="noopener noreferrer"
                className="inline-block text-sm font-mono px-4 py-2 rounded border border-amber-700 bg-amber-950/40 text-amber-300 hover:bg-amber-950/60">
               🛒 Buy on Gumroad — $39
             </a>

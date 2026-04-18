@@ -33,8 +33,8 @@ if (!KEY) {
 }
 
 // Sentinel line — looked for to detect already-appended CTA and avoid duplicates.
-// Changing it means the script will re-append, so keep it stable.
-const CTA_MARKER = '<!-- cta:subscribe-v1 -->'
+// Changing the version bumps ALL articles to the new CTA on next run.
+const CTA_MARKER = '<!-- cta:subscribe-v2 -->'
 
 function buildCta() {
   const lines = [
