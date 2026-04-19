@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import LoadingSpinner from './LoadingSpinner'
+import CreditBalance from './CreditBalance'
+import VoiceNarrator from './VoiceNarrator'
 
 interface DashboardHeaderProps {
   isLoading?: boolean
@@ -192,6 +194,8 @@ export default function DashboardHeader({ isLoading: initialLoading = false, sta
             </div>
             {isLoading && <LoadingSpinner size="sm" />}
             {stats && <HealthPill stats={stats} />}
+            <CreditBalance />
+            <VoiceNarrator />
           </div>
 
           <h1

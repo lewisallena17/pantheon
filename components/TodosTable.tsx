@@ -216,8 +216,30 @@ function TaskCard({
 export default function TodosTable({ todos, setTodos, onStatusChange, onLogEntry }: Props) {
   const [activeTab, setActiveTab] = useState<FilterTab>('all')
   const [search, setSearch] = useState('')
+  const searchInputRef = useRef<HTMLInputElement>(null)
   const flashedIds = useRef<Set<string>>(new Set())
   const flashTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
+
+  // Global keyboard: "/" focuses search, Esc clears + blurs
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const target = e.target as HTMLElement
+      const typing = target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA' || target?.isContentEditable
+
+      if (e.key === '/' && !typing && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault()
+        searchInputRef.current?.focus()
+        searchInputRef.current?.select()
+        return
+      }
+      if (e.key === 'Escape' && document.activeElement === searchInputRef.current) {
+        setSearch('')
+        searchInputRef.current?.blur()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
 
   function flash(id: string) {
     const existing = flashTimers.current.get(id)
@@ -374,12 +396,16 @@ export default function TodosTable({ todos, setTodos, onStatusChange, onLogEntry
         <div className="relative">
           <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-700 text-xs">⌕</span>
           <input
+            ref={searchInputRef}
             type="text"
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="search tasks or agents..."
-            className="bg-black/60 border border-slate-800 rounded text-xs font-mono text-slate-400 pl-7 pr-3 py-1.5 w-52 focus:outline-none focus:border-cyan-800 placeholder:text-slate-700"
+            placeholder="search tasks or agents... (press /)"
+            className="bg-black/60 border border-slate-800 rounded text-xs font-mono text-slate-400 pl-7 pr-10 py-1.5 w-60 focus:outline-none focus:border-cyan-800 placeholder:text-slate-700"
           />
+          {!search && (
+            <kbd className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-mono text-slate-700 border border-slate-800 rounded px-1 py-0.5 pointer-events-none">/</kbd>
+          )}
         </div>
       </div>
 

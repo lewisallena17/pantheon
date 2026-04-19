@@ -37,6 +37,7 @@ import SubscribersPanel from './SubscribersPanel'
 import NewsletterComposer from './NewsletterComposer'
 import MarketIntel from './MarketIntel'
 import FailedFastLane from './FailedFastLane'
+import EavesdropFeed from './EavesdropFeed'
 
 interface Props {
   initialTodos: Todo[]
@@ -217,6 +218,8 @@ export default function DashboardShell({ initialTodos }: Props) {
           <div id={SECTION_IDS.pixel}>
             <PixelDungeon todos={todos} />
           </div>
+
+          <EavesdropFeed />
 
           <Collapsible id="agents-xp" title="XP Leaderboard" defaultOpen={true}>
             <AgentXPBar todos={todos} />
