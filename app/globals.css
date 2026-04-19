@@ -45,25 +45,40 @@ body {
 .text-slate-700\/50 { color: rgba(100, 116, 139, 0.75) !important; }
 .text-slate-600\/50 { color: rgba(148, 163, 184, 0.75) !important; }
 
-/* ── Readable-mode size override ───────────────────────────────────────────
-   The base aesthetic uses text-[9px]/[10px]/[11px] liberally — crisp on a
-   high-DPI monitor, painful on anything else. When <body class="dash-readable">
-   is set, bump every arbitrary tiny size up one step without touching the
-   250+ occurrences in components. Toggleable from the header so people who
-   like the tight cyberpunk density can keep it.
+/* ── Readable by default ────────────────────────────────────────────────────
+   The base cyberpunk aesthetic uses text-[9px]/[10px]/[11px] liberally.
+   Crisp at 4K, painful on laptops. Bump every arbitrary tiny size up
+   globally (no per-component edits). Visual hierarchy preserved — the
+   relative order is unchanged, just shifted up ~40%.
 ──────────────────────────────────────────────────────────────────────────── */
-.dash-readable .text-\[9px\]   { font-size: 11px !important; }
-.dash-readable .text-\[10px\]  { font-size: 12px !important; }
-.dash-readable .text-\[11px\]  { font-size: 13px !important; }
-.dash-readable .text-\[12px\]  { font-size: 14px !important; }
-/* Also bump letter-spacing back so tracking-[0.2em] uppercase labels aren't
-   stretched into illegibility at the larger size */
-.dash-readable .tracking-\[0\.2em\]  { letter-spacing: 0.14em !important; }
-.dash-readable .tracking-\[0\.25em\] { letter-spacing: 0.16em !important; }
-.dash-readable .tracking-\[0\.3em\]  { letter-spacing: 0.18em !important; }
-/* Nudge the slate-600 palette brighter in readable mode for one-hit improvement */
-.dash-readable .text-slate-600 { color: #cbd5e1 !important; }  /* slate-300 */
-.dash-readable .text-slate-700 { color: #94a3b8 !important; }  /* slate-400 */
+.text-\[8px\]   { font-size: 12px !important; }
+.text-\[9px\]   { font-size: 13px !important; }
+.text-\[10px\]  { font-size: 14px !important; }
+.text-\[11px\]  { font-size: 15px !important; }
+.text-\[12px\]  { font-size: 16px !important; }
+.text-\[13px\]  { font-size: 17px !important; }
+.text-\[14px\]  { font-size: 18px !important; }
+/* Wide uppercase tracking is unreadable at larger sizes — dial it back */
+.tracking-\[0\.2em\]  { letter-spacing: 0.1em !important; }
+.tracking-\[0\.25em\] { letter-spacing: 0.11em !important; }
+.tracking-\[0\.3em\]  { letter-spacing: 0.12em !important; }
+/* Bring dim-text colors forward so labels stop disappearing */
+.text-slate-600 { color: #cbd5e1 !important; }  /* was #475569 → slate-300 */
+.text-slate-700 { color: #94a3b8 !important; }  /* was #334155 → slate-400 */
+.text-slate-800 { color: #64748b !important; }  /* was #1e293b → slate-500 */
+
+/* Opt-in dense mode — restores the original tight 9/10/11px aesthetic for
+   anyone who prefers the high-density cyberpunk look. Toggled from header. */
+body.dash-dense .text-\[8px\]   { font-size: 8px !important; }
+body.dash-dense .text-\[9px\]   { font-size: 9px !important; }
+body.dash-dense .text-\[10px\]  { font-size: 10px !important; }
+body.dash-dense .text-\[11px\]  { font-size: 11px !important; }
+body.dash-dense .text-\[12px\]  { font-size: 12px !important; }
+body.dash-dense .text-\[13px\]  { font-size: 13px !important; }
+body.dash-dense .text-\[14px\]  { font-size: 14px !important; }
+body.dash-dense .tracking-\[0\.2em\]  { letter-spacing: 0.2em !important; }
+body.dash-dense .tracking-\[0\.25em\] { letter-spacing: 0.25em !important; }
+body.dash-dense .tracking-\[0\.3em\]  { letter-spacing: 0.3em !important; }
 
 main {
   position: relative;
