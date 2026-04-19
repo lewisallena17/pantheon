@@ -989,6 +989,50 @@ async function webhook(text) {
   } catch {}
 }
 
+// Fire-and-forget LLM-as-a-Judge: scores a completed task 1-5 on quality and
+// writes the verdict to todos.metadata. Cheap (Haiku), non-blocking, and silently
+// skipped if credits are exhausted so it never delays the main pipeline.
+async function scoreTaskQuality(todoId, title, resultText) {
+  try {
+    const prompt = `You grade autonomous-agent task outcomes.
+
+TASK: ${title}
+RESULT:
+${(resultText ?? '').slice(0, 800)}
+
+Score 1-5:
+  5 = completed the stated goal with real output
+  4 = mostly did it; minor gaps
+  3 = partial — some value, some missing
+  2 = technically "done" but produced nothing useful
+  1 = nothing of value; padding, token-budget stop, or off-goal
+
+Reply ONLY with JSON: {"score": 1-5, "reason": "<=15 words"}`
+
+    const resp = await anthropic.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 120,
+      messages: [{ role: 'user', content: prompt }],
+    })
+    const text = resp.content[0]?.type === 'text' ? resp.content[0].text : ''
+    const match = text.match(/\{[\s\S]*\}/)
+    if (!match) return
+    const parsed = JSON.parse(match[0])
+    const score = Number(parsed.score)
+    if (!Number.isFinite(score) || score < 1 || score > 5) return
+
+    // Merge into existing metadata without clobbering
+    const { data: existing } = await supabase.from('todos').select('metadata').eq('id', todoId).single()
+    const meta = { ...(existing?.metadata ?? {}), quality_score: score, quality_reason: String(parsed.reason ?? '').slice(0, 200), quality_scored_at: new Date().toISOString() }
+    await supabase.from('todos').update({ metadata: meta }).eq('id', todoId)
+    console.log(`[JUDGE] ${todoId.slice(0,8)} → ${score}/5 (${parsed.reason?.slice(0, 60) ?? ''})`)
+  } catch (err) {
+    if (!isCreditError(err)) {
+      console.log(`[JUDGE] skipped: ${err.message?.slice(0, 80)}`)
+    }
+  }
+}
+
 // ── Main task runner (with self-healing retry) ────────────────────────────
 async function runAgent(todo) {
   const pool  = getPoolFromTodo(todo)
@@ -1040,6 +1084,9 @@ async function runAgent(todo) {
     if (todo.is_boss) await webhook(`★ BOSS SLAIN by ${agentName}: "${todo.title}" ★`)
 
     updateAgentMemory(poolName, `"${todo.title.slice(0, 60)}" succeeded — ${summary.slice(0, 100)}`)
+
+    // Background quality grade — doesn't block the loop
+    scoreTaskQuality(todo.id, todo.title, resultText).catch(() => {})
 
   } catch (err) {
     const msg = err.message?.slice(0, 200) ?? 'unknown error'

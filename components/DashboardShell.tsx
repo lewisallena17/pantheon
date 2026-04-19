@@ -38,6 +38,11 @@ import NewsletterComposer from './NewsletterComposer'
 import MarketIntel from './MarketIntel'
 import FailedFastLane from './FailedFastLane'
 import EavesdropFeed from './EavesdropFeed'
+import TaskKanban from './TaskKanban'
+import SkillCatalog from './SkillCatalog'
+import TrustScores from './TrustScores'
+import LatencyDistribution from './LatencyDistribution'
+import QualityDistribution from './QualityDistribution'
 
 interface Props {
   initialTodos: Todo[]
@@ -196,6 +201,10 @@ export default function DashboardShell({ initialTodos }: Props) {
             <PriorityRadar todos={todos} />
           </div>
 
+          <TaskKanban todos={todos} />
+
+          <QualityDistribution todos={todos} />
+
           <AddTodoForm />
           <div id={SECTION_IDS.todos}>
             <TodosTable
@@ -218,6 +227,10 @@ export default function DashboardShell({ initialTodos }: Props) {
           <div id={SECTION_IDS.pixel}>
             <PixelDungeon todos={todos} />
           </div>
+
+          <TrustScores todos={todos} />
+
+          <SkillCatalog />
 
           <EavesdropFeed />
 
@@ -266,6 +279,8 @@ export default function DashboardShell({ initialTodos }: Props) {
       {tab === 'code' && (
         <div className={gap}>
           <CIStatus />
+
+          <LatencyDistribution todos={todos} />
 
           <Collapsible id="code-git" title="Git History" defaultOpen={true}>
             <GitHistory />
