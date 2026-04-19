@@ -1061,8 +1061,32 @@ Reply with just the phrase.`
 }
 
 // ── 3. Task prerequisite validator ────────────────────────────────────────
+// Dead-end task patterns that repeatedly blow the token budget or self-reference
+// a broken tool. Hard-vetoed regardless of who proposes them.
+const TASK_BLOCKLIST_PATTERNS = [
+  /bounded\s+(query|select)/i,
+  /inject\s+limit/i,
+  /agent_exec_sql\s+wrapper/i,
+  /wrap(per)?\s+.{0,20}agent_exec_sql/i,
+  /validate\s+.{0,30}agent_exec/i,
+  /pre-?execution\s+(query\s+)?validator/i,
+  /(pre|post)\s*\/\s*(pre|post)\s+success\s+rate/i,
+  /success\s+rate\s+delta/i,
+  /outcome\s+delta/i,
+  /schema\s+introspection\s+(validator|queries?)/i,
+  /limit\s+enforcement/i,
+  /task\s+router.{0,40}success\s+rate/i,
+]
+
 function validateTask(task, schema) {
   const title = task.title.toLowerCase()
+
+  for (const pat of TASK_BLOCKLIST_PATTERNS) {
+    if (pat.test(title)) {
+      return { valid: false, reason: `blocklisted pattern: ${pat.source.slice(0, 40)}` }
+    }
+  }
+
   const tables = schema.tableNames.toLowerCase().split(', ').map(t => t.trim())
   const funcs  = schema.funcNames.toLowerCase().split(', ').map(f => f.trim())
 
