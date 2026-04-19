@@ -1,0 +1,30 @@
+{
+  "inferred": {
+    "role": "solo developer building an autonomous AI agent system (pantheon)",
+    "preferences": [
+      "hands-off automation — wants minimal manual input",
+      "no Gumroad (too manual / not fully automated)",
+      "permits direct bash/PM2/CLI execution without confirmation",
+      "prefers terse, specific responses over long explanations",
+      "wants a visually impressive dashboard (\"best on the internet\")"
+    ],
+    "current_goals": [
+      "keep the autonomous agent system running 24/7",
+      "add fully-automated revenue stream (stock images via Adobe Stock contributor API, pending account verification)",
+      "minimize Anthropic API burn while maximizing useful output"
+    ],
+    "pain_points": [
+      "Anthropic credits have hit $0 twice this session — needs balance visibility (added)",
+      "tiny cyberpunk text was hard to read (addressed: readable-mode default)",
+      "too many failed tasks from the agent_exec_sql overload loop (fixed via migration 0025)"
+    ],
+    "abandoned_ideas": [
+      "YouTube music channel (sleeping/chill music)",
+      "Gumroad as primary revenue",
+      "Various affiliate programs (LemonSqueezy, ShipFast) — links were broken or flows too manual"
+    ]
+  },
+  "updated_at": "2026-04-19T19:00:00.000Z",
+  "cycle": 238,
+  "version": 1
+}

@@ -43,6 +43,7 @@ import SkillCatalog from './SkillCatalog'
 import TrustScores from './TrustScores'
 import LatencyDistribution from './LatencyDistribution'
 import QualityDistribution from './QualityDistribution'
+import UserProfile from './UserProfile'
 
 interface Props {
   initialTodos: Todo[]
@@ -143,6 +144,8 @@ export default function DashboardShell({ initialTodos }: Props) {
       {/* ── OVERVIEW TAB ─────────────────────────────────────────────── */}
       {tab === 'overview' && (
         <div className={gap}>
+          <UserProfile />
+
           <div className="rounded border border-slate-800/50 bg-black/30 px-4 py-3 space-y-2">
             <div className="flex items-center justify-between gap-3">
               <span className="text-[10px] font-mono text-slate-700 tracking-[0.25em] uppercase select-none">

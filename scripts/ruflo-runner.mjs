@@ -1109,23 +1109,64 @@ async function runAgent(todo) {
   }
 }
 
-// ── Stale task detection ──────────────────────────────────────────────────
+// ── Stale task detection + escalation ─────────────────────────────────────
+// Graduated response (Composio orchestrator pattern):
+//   10min  stuck in_progress + no active agent → reset (try again)
+//   2nd   occurrence                          → escalate: mark failed with reason
+//   pending >60min                             → kill as "abandoned" (vetoed)
+// Escalation state lives in metadata.stale_count so it survives process restarts.
 async function resetStaleTasks() {
   try {
-    const tenMinAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString()
-    const { data } = await supabase
+    const now         = Date.now()
+    const tenMinAgo   = new Date(now - 10  * 60 * 1000).toISOString()
+    const sixtyMinAgo = new Date(now - 60  * 60 * 1000).toISOString()
+
+    // A) stuck in_progress with no active agent
+    const { data: stuck } = await supabase
       .from('todos')
-      .select('id, title')
+      .select('id, title, metadata, retry_count')
       .eq('status', 'in_progress')
       .lt('updated_at', tenMinAgo)
 
-    for (const task of data ?? []) {
-      if (!activeAgents.has(task.id)) {
-        console.log(`[ruflo] Stale task reset: "${task.title}"`)
-        await supabase.from('todos').update({ status: 'pending', assigned_agent: null }).eq('id', task.id)
+    for (const task of stuck ?? []) {
+      if (activeAgents.has(task.id)) continue
+      const count = Number(task.metadata?.stale_count ?? 0) + 1
+      const meta  = { ...(task.metadata ?? {}), stale_count: count, last_stale_at: new Date().toISOString() }
+
+      if (count >= 2) {
+        console.log(`[ruflo] ⚠ Escalating repeat-stuck task: "${task.title.slice(0, 60)}"`)
+        await supabase.from('todos').update({
+          status: 'failed',
+          metadata: { ...meta, failure_reason: `stuck ${count}× with no agent progress` },
+          assigned_agent: null,
+        }).eq('id', task.id)
+      } else {
+        console.log(`[ruflo] Stale reset #${count}: "${task.title.slice(0, 60)}"`)
+        await supabase.from('todos').update({
+          status: 'pending',
+          assigned_agent: null,
+          metadata: meta,
+        }).eq('id', task.id)
       }
     }
-  } catch {}
+
+    // B) pending never picked up after 60min — likely obsolete
+    const { data: abandoned } = await supabase
+      .from('todos')
+      .select('id, title')
+      .eq('status', 'pending')
+      .lt('created_at', sixtyMinAgo)
+
+    for (const task of abandoned ?? []) {
+      console.log(`[ruflo] Abandoning long-pending task: "${task.title.slice(0, 60)}"`)
+      await supabase.from('todos').update({
+        status: 'vetoed',
+        metadata: { abandoned_at: new Date().toISOString(), reason: 'pending >60min — likely obsolete' },
+      }).eq('id', task.id)
+    }
+  } catch (e) {
+    console.log(`[ruflo] stale check error: ${e.message?.slice(0, 80)}`)
+  }
 }
 
 // ── Poll + realtime ───────────────────────────────────────────────────────

@@ -721,17 +721,52 @@ async function detectRegressions(todos, wisdom) {
 }
 
 // ── 5. Dynamic priority scoring ────────────────────────────────────────────
-async function scorePendingTasks(todos) {
+async function scorePendingTasks(todos, schema = null, wisdom = null) {
   const pending = todos.filter(t => t.status === 'pending')
   if (!pending.length) return
 
-  // Score each pending task and update its priority if needed
+  let vetoed = 0, boosted = 0
+  const activeGoalText = wisdom?.roadmap?.goals
+    ?.filter(g => g.status === 'active')
+    ?.map(g => g.title?.toLowerCase()).join(' ') ?? ''
+
   for (const task of pending) {
     const ageHours = (Date.now() - new Date(task.created_at).getTime()) / 3600000
-    const isSimple = task.title.split(' ').length < 15
-    const isDB     = /index|function|trigger|column|table/.test(task.title.toLowerCase())
+    const title    = task.title.toLowerCase()
 
-    // Boost: older tasks, simpler tasks, DB tasks (higher success rate)
+    // Veto pass #1 — blocklist patterns (self-referential loops, bounded query, etc.)
+    if (schema) {
+      const check = validateTask(task, schema)
+      if (!check.valid) {
+        await supabase.from('todos').update({
+          status: 'vetoed',
+          metadata: { ...(task.metadata ?? {}), vetoed_by: 'requeue-veto', reason: check.reason },
+        }).eq('id', task.id)
+        console.log(`[GOD-REQUEUE] Vetoed stale pending "${task.title.slice(0, 50)}" — ${check.reason}`)
+        vetoed++
+        continue
+      }
+    }
+
+    // Veto pass #2 — off-goal AND old. If it's been pending >45min AND no active
+    // goal keyword matches, it's almost certainly obsolete.
+    if (activeGoalText && ageHours > 0.75) {
+      const taskTokens = title.split(/\s+/).filter(w => w.length >= 4)
+      const goalHit = taskTokens.some(w => activeGoalText.includes(w))
+      if (!goalHit) {
+        await supabase.from('todos').update({
+          status: 'vetoed',
+          metadata: { ...(task.metadata ?? {}), vetoed_by: 'requeue-veto', reason: 'off-goal after 45min aging' },
+        }).eq('id', task.id)
+        console.log(`[GOD-REQUEUE] Vetoed off-goal pending "${task.title.slice(0, 50)}"`)
+        vetoed++
+        continue
+      }
+    }
+
+    // Boost pass — older/simpler/DB tasks are cheaper & likelier to succeed
+    const isSimple = task.title.split(' ').length < 15
+    const isDB     = /index|function|trigger|column|table/.test(title)
     let boost = 0
     if (ageHours > 2) boost++
     if (isSimple)     boost++
@@ -740,15 +775,17 @@ async function scorePendingTasks(todos) {
     const priorityMap = { low: 0, medium: 1, high: 2, critical: 3 }
     const reverseMap  = ['low', 'medium', 'high', 'critical']
     const current     = priorityMap[task.priority] ?? 1
-    const boosted     = Math.min(current + (boost >= 2 ? 1 : 0), 3)
+    const boostedP    = Math.min(current + (boost >= 2 ? 1 : 0), 3)
 
-    if (boosted > current) {
+    if (boostedP > current) {
       await supabase.from('todos')
-        .update({ priority: reverseMap[boosted] })
+        .update({ priority: reverseMap[boostedP] })
         .eq('id', task.id)
-      console.log(`[GOD] Boosted priority: "${task.title.slice(0, 50)}" → ${reverseMap[boosted]}`)
+      console.log(`[GOD-REQUEUE] Boosted "${task.title.slice(0, 50)}" → ${reverseMap[boostedP]}`)
+      boosted++
     }
   }
+  if (vetoed || boosted) console.log(`[GOD-REQUEUE] re-ranked queue: ${boosted} boosted, ${vetoed} vetoed`)
 }
 
 // ── 6. Multi-agent council ────────────────────────────────────────────────
@@ -2050,8 +2087,8 @@ async function divineCycle() {
     // Save wisdom after all updates
     saveWisdom(wisdom)
 
-    // Score and boost promising pending tasks
-    await scorePendingTasks(todos)
+    // Re-rank the whole pending queue: boost + veto obsolete/off-goal tasks
+    await scorePendingTasks(todos, schema, wisdom)
 
     // Directly improve the dashboard every 5 cycles (captures edits into wisdom)
     wisdom = await improveDashboard(todos, wisdom)

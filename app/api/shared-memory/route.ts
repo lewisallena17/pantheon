@@ -6,28 +6,51 @@ const MEM_DIR = join(process.cwd(), 'scripts', 'agent-memory')
 
 export const dynamic = 'force-dynamic'
 
-interface Entry { agent: string; lesson: string; at: string; idx: number }
+interface Entry { agent: string; lesson: string; at: string; idx: number; bucket?: string }
+interface TriagedBucket { text: string; at?: string | null }
+interface TriagedMem {
+  episodic?:   Array<TriagedBucket | string>
+  semantic?:   Array<TriagedBucket | string>
+  procedural?: Array<TriagedBucket | string>
+  archived?:   Array<{ text: string; archived_at: string; reason: string }>
+  lessons?:    string[]
+  version?:    number
+}
+
+function lessonText(e: TriagedBucket | string): string {
+  return typeof e === 'string' ? e : e.text
+}
 
 export async function GET() {
-  if (!existsSync(MEM_DIR)) return NextResponse.json({ entries: [] })
+  if (!existsSync(MEM_DIR)) return NextResponse.json({ entries: [], triaged: null })
 
   const files = readdirSync(MEM_DIR).filter(f => f.endsWith('.json'))
   const all: Entry[] = []
+  let triaged: TriagedMem | null = null
 
   for (const f of files) {
     const path = join(MEM_DIR, f)
-    let raw
+    let raw: TriagedMem
     try { raw = JSON.parse(readFileSync(path, 'utf8')) } catch { continue }
-    const lessons: string[] = Array.isArray(raw?.lessons) ? raw.lessons : []
+
+    // Capture the triaged buckets from global-lessons.json for the skill catalog.
+    if (f === 'global-lessons.json' && raw.version === 2) {
+      triaged = {
+        episodic:   (raw.episodic   ?? []).slice(-40),
+        semantic:   (raw.semantic   ?? []).slice(-40),
+        procedural: (raw.procedural ?? []).slice(-40),
+        archived:   (raw.archived   ?? []).slice(-20),
+        version:    2,
+      }
+    }
+
+    const lessons: string[] = Array.isArray(raw.lessons) ? raw.lessons : []
     if (!lessons.length) continue
 
     const mtime = statSync(path).mtime.toISOString()
     const agent = f.replace(/\.json$/, '')
-
-    // Take the last 15 lessons from each file; the tail is the freshest.
-    // We fake a per-lesson timestamp by offsetting from mtime — this gives a
-    // plausible ordering for the feed without requiring schema changes.
     const tail = lessons.slice(-15)
+
     for (const [i, lesson] of tail.entries()) {
       all.push({
         agent,
@@ -38,7 +61,9 @@ export async function GET() {
     }
   }
 
-  // Newest first, cap the payload
   all.sort((a, b) => b.at.localeCompare(a.at))
-  return NextResponse.json({ entries: all.slice(0, 60) })
+  return NextResponse.json({ entries: all.slice(0, 60), triaged })
 }
+
+// unused but kept in case we want to surface individual entries later
+void lessonText
