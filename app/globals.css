@@ -45,6 +45,26 @@ body {
 .text-slate-700\/50 { color: rgba(100, 116, 139, 0.75) !important; }
 .text-slate-600\/50 { color: rgba(148, 163, 184, 0.75) !important; }
 
+/* ── Readable-mode size override ───────────────────────────────────────────
+   The base aesthetic uses text-[9px]/[10px]/[11px] liberally — crisp on a
+   high-DPI monitor, painful on anything else. When <body class="dash-readable">
+   is set, bump every arbitrary tiny size up one step without touching the
+   250+ occurrences in components. Toggleable from the header so people who
+   like the tight cyberpunk density can keep it.
+──────────────────────────────────────────────────────────────────────────── */
+.dash-readable .text-\[9px\]   { font-size: 11px !important; }
+.dash-readable .text-\[10px\]  { font-size: 12px !important; }
+.dash-readable .text-\[11px\]  { font-size: 13px !important; }
+.dash-readable .text-\[12px\]  { font-size: 14px !important; }
+/* Also bump letter-spacing back so tracking-[0.2em] uppercase labels aren't
+   stretched into illegibility at the larger size */
+.dash-readable .tracking-\[0\.2em\]  { letter-spacing: 0.14em !important; }
+.dash-readable .tracking-\[0\.25em\] { letter-spacing: 0.16em !important; }
+.dash-readable .tracking-\[0\.3em\]  { letter-spacing: 0.18em !important; }
+/* Nudge the slate-600 palette brighter in readable mode for one-hit improvement */
+.dash-readable .text-slate-600 { color: #cbd5e1 !important; }  /* slate-300 */
+.dash-readable .text-slate-700 { color: #94a3b8 !important; }  /* slate-400 */
+
 main {
   position: relative;
   z-index: 1;

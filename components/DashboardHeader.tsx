@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import LoadingSpinner from './LoadingSpinner'
 import CreditBalance from './CreditBalance'
 import VoiceNarrator from './VoiceNarrator'
+import ReadableModeToggle from './ReadableModeToggle'
 
 interface DashboardHeaderProps {
   isLoading?: boolean
@@ -196,6 +197,7 @@ export default function DashboardHeader({ isLoading: initialLoading = false, sta
             {stats && <HealthPill stats={stats} />}
             <CreditBalance />
             <VoiceNarrator />
+            <ReadableModeToggle />
           </div>
 
           <h1
