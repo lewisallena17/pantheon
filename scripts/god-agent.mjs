@@ -23,6 +23,9 @@ import { execSync } from 'node:child_process'
 import { notify, shouldNotify } from './lib-notify.mjs'
 import { pruneWisdom } from './god/memory.mjs'
 import { publishSharedBatch } from './lib-shared-memory.mjs'
+import { runMarketResearch } from './god/market-research.mjs'
+import { runFunnelAnalysis } from './god/funnel-analyzer.mjs'
+import { runListingOptimizer } from './god/listing-optimizer.mjs'
 
 const __dirname   = dirname(fileURLToPath(import.meta.url))
 const PROJECT_ROOT = resolve(__dirname, '..')
@@ -2097,6 +2100,47 @@ async function divineCycle() {
 
     // 6. Security audit every 30 cycles (OWASP/STRIDE-style)
     wisdom = await securityAudit(wisdom)
+
+    // 7. Market research every 25 cycles (competitor scan)
+    if (wisdom.cycles % 25 === 0 && wisdom.cycles > 0) {
+      const finding = await runMarketResearch({
+        anthropic, cycle: wisdom.cycles,
+        ownProduct: { name: 'Autonomous AI Task Dashboard', price: 39 },
+      })
+      if (finding) {
+        wisdom = { ...wisdom, marketResearch: [...(wisdom.marketResearch ?? []).slice(-4), finding] }
+      }
+    }
+
+    // 8. Funnel analysis every 15 cycles
+    let latestFunnel = null
+    if (wisdom.cycles % 15 === 0 && wisdom.cycles > 0) {
+      const result = await runFunnelAnalysis({
+        anthropic, cycle: wisdom.cycles,
+        supabase,
+        projectRoot: PROJECT_ROOT,
+        devToApiKey: process.env.DEV_TO_API_KEY,
+      })
+      if (result) {
+        latestFunnel = result.summary
+        wisdom = {
+          ...wisdom,
+          funnelFindings: [...(wisdom.funnelFindings ?? []).slice(-9), result],
+        }
+      }
+    }
+
+    // 9. Listing optimizer every 40 cycles (combines market research + funnel)
+    if (wisdom.cycles % 40 === 0 && wisdom.cycles > 0) {
+      const latestMarket = (wisdom.marketResearch ?? []).slice(-1)[0]
+      const funnelSummary = latestFunnel ?? (wisdom.funnelFindings ?? []).slice(-1)[0]?.summary
+      await runListingOptimizer({
+        anthropic, cycle: wisdom.cycles,
+        projectRoot: PROJECT_ROOT,
+        marketResearch: latestMarket,
+        funnelSummary,
+      })
+    }
 
     // If research produced a proposedTask, offer it as a low-priority task
     const lastResearch = (wisdom.researchLog ?? []).slice(-1)[0]

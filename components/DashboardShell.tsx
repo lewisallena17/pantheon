@@ -35,6 +35,7 @@ import CriticalAlertBanner from './CriticalAlertBanner'
 import MarketplaceListings from './MarketplaceListings'
 import SubscribersPanel from './SubscribersPanel'
 import NewsletterComposer from './NewsletterComposer'
+import MarketIntel from './MarketIntel'
 import FailedFastLane from './FailedFastLane'
 
 interface Props {
@@ -243,6 +244,7 @@ export default function DashboardShell({ initialTodos }: Props) {
       {/* ── REVENUE TAB ──────────────────────────────────────────────── */}
       {tab === 'revenue' && (
         <div className={gap}>
+          <MarketIntel />
           <RevenueTracker />
           <RevenueAutomation />
           <MarketplaceListings />
