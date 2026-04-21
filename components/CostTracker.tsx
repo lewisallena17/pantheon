@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import RadialGauge from './RadialGauge'
 
 interface CostLog {
   total: number
@@ -84,25 +85,26 @@ export default function CostTracker() {
       {expanded && (
         <div className="p-3 space-y-3">
 
-          {/* Daily budget bar */}
-          <div>
-            <div className="flex justify-between text-xs font-mono text-slate-600 mb-1">
-              <span>TODAY</span>
-              <span>{fmt(todaySpend)} of {fmt(DAILY_LIMIT)} daily limit</span>
-            </div>
-            <div className="h-2 bg-slate-900 rounded overflow-hidden">
-              <div
-                className={`h-full rounded transition-all duration-700 ${
-                  isAtLimit ? 'bg-red-600' : isWarning ? 'bg-yellow-600' : 'bg-green-700'
-                }`}
-                style={{ width: `${limitPct}%` }}
-              />
-            </div>
-            <div className="flex justify-between text-[10px] font-mono text-slate-700 mt-0.5">
-              <span>all-time: {fmt(data.total ?? 0)}</span>
-              <span className={isAtLimit ? 'text-red-600' : 'text-slate-700'}>
-                {isAtLimit ? 'PAUSED until tomorrow' : `${fmt(DAILY_LIMIT - todaySpend)} remaining today`}
-              </span>
+          {/* Daily budget — radial HUD gauge + numeric breakdown */}
+          <div className="flex items-center gap-4">
+            <RadialGauge
+              pct={limitPct}
+              size={96}
+              label={fmt(todaySpend)}
+              sublabel="TODAY"
+              color={isAtLimit ? 'red' : isWarning ? 'amber' : 'emerald'}
+              thickness={8}
+            />
+            <div className="flex-1 text-xs font-mono space-y-1">
+              <div className="text-slate-500">
+                <span className="text-slate-400">daily limit:</span> {fmt(DAILY_LIMIT)}
+              </div>
+              <div className="text-slate-500">
+                <span className="text-slate-400">all-time:</span> {fmt(data.total ?? 0)}
+              </div>
+              <div className={isAtLimit ? 'text-red-400' : 'text-emerald-400'}>
+                {isAtLimit ? 'PAUSED until tomorrow' : `${fmt(DAILY_LIMIT - todaySpend)} remaining`}
+              </div>
             </div>
           </div>
 

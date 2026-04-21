@@ -5,11 +5,16 @@ import LoadingSpinner from './LoadingSpinner'
 import CreditBalance from './CreditBalance'
 import VoiceNarrator from './VoiceNarrator'
 import ReadableModeToggle from './ReadableModeToggle'
+import ArcReactor from './ArcReactor'
+import JarvisGreeting from './JarvisGreeting'
+import type { Todo } from '@/types/todos'
 
 interface DashboardHeaderProps {
   isLoading?: boolean
   /** Live todo counts passed from parent so header reflects real-time system state */
   stats?: { total: number; completed: number; failed: number; active: number }
+  /** Full todo list so the greeting can summarise overnight activity */
+  todos?: Todo[]
 }
 
 function LiveClock() {
@@ -170,7 +175,7 @@ function StatsTiles({ stats }: { stats: NonNullable<DashboardHeaderProps['stats'
   )
 }
 
-export default function DashboardHeader({ isLoading: initialLoading = false, stats }: DashboardHeaderProps) {
+export default function DashboardHeader({ isLoading: initialLoading = false, stats, todos = [] }: DashboardHeaderProps) {
   const [isLoading, setIsLoading] = useState(initialLoading)
 
   useEffect(() => {
@@ -188,36 +193,47 @@ export default function DashboardHeader({ isLoading: initialLoading = false, sta
       <div className="flex items-start justify-between pt-4 gap-6">
 
         {/* Left: branding */}
-        <div className="flex-shrink-0">
-          <div className="flex items-center gap-3 mb-1 flex-wrap">
-            <div className="text-xs text-cyan-500 tracking-[0.3em] uppercase">
-              ◈ Neural Task Network v2.4.1
+        <div className="flex-shrink-0 flex items-start gap-4">
+          {/* Arc reactor — pulse speed ramps with # of running agents */}
+          <ArcReactor
+            size={72}
+            intensity={stats ? Math.min(1, stats.active / 4) : 0.3}
+            className="mt-1 flex-shrink-0"
+          />
+
+          <div>
+            <div className="flex items-center gap-3 mb-1 flex-wrap">
+              <div className="text-xs text-cyan-500 tracking-[0.3em] uppercase">
+                ◈ Neural Task Network v2.4.1
+              </div>
+              {isLoading && <LoadingSpinner size="sm" />}
+              {stats && <HealthPill stats={stats} />}
+              <CreditBalance />
+              <VoiceNarrator />
+              <ReadableModeToggle />
             </div>
-            {isLoading && <LoadingSpinner size="sm" />}
-            {stats && <HealthPill stats={stats} />}
-            <CreditBalance />
-            <VoiceNarrator />
-            <ReadableModeToggle />
-          </div>
 
-          <h1
-            className="text-3xl font-black tracking-widest uppercase text-cyan-400 glow-text"
-            style={{ fontFamily: 'Orbitron, monospace' }}
-          >
-            TASK//MATRIX
-          </h1>
+            <h1
+              className="text-3xl font-black tracking-widest uppercase text-cyan-400 glow-text"
+              style={{ fontFamily: 'Orbitron, monospace' }}
+            >
+              TASK//MATRIX
+            </h1>
 
-          <div className="text-xs text-slate-500 mt-1 tracking-widest">
-            AGENT OPERATIONS MONITOR — REALTIME SYNC ACTIVE
-          </div>
+            <div className="text-xs text-slate-500 mt-1 tracking-widest">
+              AGENT OPERATIONS MONITOR — REALTIME SYNC ACTIVE
+            </div>
 
-          {/* Clock sits under the title on the left — always visible */}
-          <div className="mt-2 text-xs font-mono text-slate-600">
-            LOCAL&nbsp;
-            <span className="text-cyan-600 tabular-nums">
-              <LiveClock />
-            </span>
-            <span className="text-slate-700 ml-3">SINCE {uptimeSince}</span>
+            <JarvisGreeting todos={todos} />
+
+            {/* Clock sits under the title on the left — always visible */}
+            <div className="mt-2 text-xs font-mono text-slate-600">
+              LOCAL&nbsp;
+              <span className="text-cyan-600 tabular-nums">
+                <LiveClock />
+              </span>
+              <span className="text-slate-700 ml-3">SINCE {uptimeSince}</span>
+            </div>
           </div>
         </div>
 

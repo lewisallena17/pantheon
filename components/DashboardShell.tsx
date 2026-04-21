@@ -44,6 +44,8 @@ import TrustScores from './TrustScores'
 import LatencyDistribution from './LatencyDistribution'
 import QualityDistribution from './QualityDistribution'
 import UserProfile from './UserProfile'
+import BootSplash from './BootSplash'
+import DataTicker from './DataTicker'
 
 interface Props {
   initialTodos: Todo[]
@@ -123,14 +125,17 @@ export default function DashboardShell({ initialTodos }: Props) {
   const gap = compact ? 'space-y-2' : 'space-y-4'
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-2 pb-10">
+      <BootSplash />
+      <DataTicker todos={todos} />
+
       {/* ── Critical failure banner — renders only when fail rate ≥ 60% ── */}
       <CriticalAlertBanner todos={todos} />
 
       <VictoryFlash todos={todos} />
       <CommandPalette todos={todos} />
 
-      <DashboardHeader stats={liveStats} />
+      <DashboardHeader stats={liveStats} todos={todos} />
 
       <StickyHeader
         todos={todos}
