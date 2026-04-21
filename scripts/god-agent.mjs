@@ -1119,6 +1119,14 @@ const TASK_BLOCKLIST_PATTERNS = [
   /schema\s+introspection\s+(validator|queries?)/i,
   /limit\s+enforcement/i,
   /task\s+router.{0,40}success\s+rate/i,
+  // ── Token-budget blowup patterns (learned from the 10 recent failures) ──
+  // Multi-table queries with classification/extraction always exceed 120k tokens.
+  /query\s+\w+\s*\+\s*\w+/i,                        // "Query god_status + task_history"
+  /classify\s+.{0,40}\bpatterns?\b/i,               // "classify db category success patterns"
+  /extract\s+.{0,40}via\s+regex/i,                  // "extract db category via regexp_matches"
+  /\bregexp_matches?\b/i,                           // direct use of regex SQL function
+  /classify\s+.{0,40}\s+(via|using)\s+/i,           // "classify ... via ..."
+  /categorize\s+.{0,40}\s+(via|using)\s+/i,         // "categorize ... using ..."
 ]
 
 function validateTask(task, schema) {
