@@ -1,4 +1,4 @@
-import { readFileSync, existsSync } from 'node:fs'
+import { readFileSync, existsSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { NextResponse } from 'next/server'
 
@@ -35,28 +35,20 @@ function costSince(sessions: Session[], iso: string) {
     .reduce((sum, s) => sum + (s.cost ?? 0), 0)
 }
 
-/** Cheap tail of the pm2 error log — last 80 lines, looking for credit errors in the last 10 min. */
+/** Cheap tail of the pm2 error log, but only if the file itself was touched
+ *  in the last 10 minutes. pm2 doesn't timestamp each line, so we use the
+ *  file's mtime as our "recency" floor — old "CREDIT EXHAUSTED" lines sitting
+ *  in an unmodified log don't count. */
 function recentCreditExhaustion(): boolean {
   try {
     if (!existsSync(GOD_ERR_LOG)) return false
-    const raw = readFileSync(GOD_ERR_LOG, 'utf8')
-    // Keep the tail cheap
-    const tail = raw.slice(-12_000).split('\n').slice(-80)
-    const tenMinAgo = Date.now() - 10 * 60_000
+    const stat = statSync(GOD_ERR_LOG)
+    const ageMin = (Date.now() - stat.mtime.getTime()) / 60_000
+    if (ageMin > 10) return false // no recent writes → nothing's current
 
-    for (const line of tail) {
-      if (!/credit|CREDIT/.test(line)) continue
-      // pm2 prefixes lines with a timestamp like "2026-04-19T..."; try to parse
-      const tsMatch = line.match(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/)
-      if (tsMatch) {
-        const ts = new Date(tsMatch[0]).getTime()
-        if (Number.isFinite(ts) && ts >= tenMinAgo) return true
-      } else {
-        // No timestamp — if "credit" appears in last 80 lines, assume it's recent
-        return true
-      }
-    }
-    return false
+    const raw  = readFileSync(GOD_ERR_LOG, 'utf8')
+    const tail = raw.slice(-12_000).split('\n').slice(-80)
+    return tail.some(l => /credit/i.test(l))
   } catch {
     return false
   }
