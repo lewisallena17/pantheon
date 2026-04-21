@@ -1,29 +1,20 @@
 import { NextResponse } from 'next/server'
-import { MsEdgeTTS, OUTPUT_FORMAT } from 'msedge-tts'
+import { spawn } from 'node:child_process'
+import { join } from 'node:path'
 
 export const dynamic = 'force-dynamic'
 
-// Microsoft Edge neural voice (British male). Free, no API key needed —
-// uses the same service Edge browser uses when you click "Read aloud".
-const DEFAULT_VOICE  = process.env.EDGE_TTS_VOICE || 'en-GB-RyanNeural'
-const MAX_CHARS      = 400
+const DEFAULT_VOICE = process.env.EDGE_TTS_VOICE || 'en-GB-RyanNeural'
+const MAX_CHARS     = 400
+const WORKER_PATH   = join(process.cwd(), 'scripts', 'tts-edge-worker.mjs')
 
-// Escapes SSML-unsafe characters + wraps the text in a prosody element so we
-// can nudge pace and pitch closer to a measured Jarvis delivery.
-function buildSSML(text: string, voice: string) {
-  const safe = text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&apos;')
-  return `<speak version="1.0" xml:lang="en-GB">
-    <voice name="${voice}">
-      <prosody rate="-5%" pitch="-5%">${safe}</prosody>
-    </voice>
-  </speak>`
-}
-
+/**
+ * Proxies Microsoft Edge's free neural TTS. The actual WebSocket call runs
+ * in a child process (see scripts/tts-edge-worker.mjs) because Next.js's
+ * webpack mangles the `ws` package's native bufferutil binding in the RSC
+ * layer, breaking WebSocket masking. Spawning a plain Node process bypasses
+ * webpack entirely.
+ */
 export async function POST(req: Request) {
   let text: string
   try {
@@ -35,23 +26,37 @@ export async function POST(req: Request) {
   if (!text) return NextResponse.json({ error: 'empty-text' }, { status: 400 })
 
   try {
-    const tts = new MsEdgeTTS()
-    await tts.setMetadata(DEFAULT_VOICE, OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3)
+    const audio = await new Promise<Buffer>((resolve, reject) => {
+      const child = spawn(process.execPath, [WORKER_PATH, DEFAULT_VOICE], {
+        stdio: ['pipe', 'pipe', 'pipe'],
+        windowsHide: true,
+      })
 
-    // Try SSML prosody first; fall back to plain text if the package version
-    // doesn't accept SSML via toStream.
-    let stream
-    try {
-      stream = tts.toStream(buildSSML(text, DEFAULT_VOICE))
-    } catch {
-      stream = tts.toStream(text)
-    }
+      const stdout: Buffer[] = []
+      const stderr: Buffer[] = []
+      const kill = setTimeout(() => {
+        child.kill('SIGKILL')
+        reject(new Error('worker-timeout'))
+      }, 15_000)
 
-    const chunks: Buffer[] = []
-    for await (const chunk of stream.audioStream) chunks.push(chunk as Buffer)
-    const audio = Buffer.concat(chunks)
+      child.stdout.on('data', (c: Buffer) => stdout.push(c))
+      child.stderr.on('data', (c: Buffer) => stderr.push(c))
+      child.on('error', (e) => { clearTimeout(kill); reject(e) })
+      child.on('close', (code) => {
+        clearTimeout(kill)
+        if (code === 0) return resolve(Buffer.concat(stdout))
+        const err = Buffer.concat(stderr).toString().slice(0, 200)
+        reject(new Error(`worker-exit-${code}: ${err}`))
+      })
 
-    return new Response(audio, {
+      // Pipe the text in via stdin so we don't risk arg-length or quoting issues
+      child.stdin.write(text)
+      child.stdin.end()
+    })
+
+    if (!audio.length) throw new Error('empty-audio')
+
+    return new Response(new Uint8Array(audio), {
       status: 200,
       headers: {
         'Content-Type':  'audio/mpeg',
@@ -62,14 +67,14 @@ export async function POST(req: Request) {
     })
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'unknown'
-    return NextResponse.json({ error: 'tts-failed', detail: msg.slice(0, 200) }, { status: 502 })
+    return NextResponse.json({ error: 'tts-failed', detail: msg.slice(0, 240) }, { status: 502 })
   }
 }
 
 export async function GET() {
   return NextResponse.json({
-    enabled:   true, // always free, no key
-    voice:     DEFAULT_VOICE,
-    service:   'microsoft-edge-tts',
+    enabled: true,
+    voice:   DEFAULT_VOICE,
+    service: 'microsoft-edge-tts (child-process)',
   })
 }
