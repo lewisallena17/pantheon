@@ -3,7 +3,7 @@
  *
  * Kills known-bad task patterns BEFORE they consume tokens.
  *
- * Root cause evidence (god-wisdom.json + global-lessons.json, cycles 1-301):
+ * Root cause evidence (god-wisdom.json + global-lessons.json, cycles 1-310):
  *   - ruflo-high:     2,412 failures vs 605 successes
  *   - ruflo-critical:   685 failures vs  34 successes
  *
@@ -14,6 +14,8 @@
  *   D) Multi-table joins without LIMIT that balloon to 130k input tokens
  *   E) Evaluation/framework-building tasks that produce frameworks, not outcomes
  *   F) Self-referential "analyze failure patterns" loops that create new failures
+ *   G) Cross-conversation pattern inference (unbounded, no queryable table)
+ *   H) Relevance/attention decay modeling across conversations (no measurable signal)
  *
  * Each REJECT_RULE has:
  *   pattern  — regex tested against lowercased title+description
@@ -122,7 +124,52 @@ export const REJECT_RULES = [
     category: 'curiosity-abstract',
   },
 
-  // ── Category H: Frameworks without data sources (generic catch) ───────
+  // ── Category H: Cross-conversation pattern inference ──────────────────
+  // Root cause: "Never design systems requiring cross-conversation pattern inference"
+  // Recent failures: "[CURIOSITY] Detect recurring problem-solving patterns across
+  //                  multiple user conversations"
+  {
+    pattern: /recurring.{0,30}(pattern|problem|behavior).{0,30}(across|multiple|conversation)/i,
+    reason:  'Recurring pattern detection across multiple conversations requires unbounded cross-session data — no queryable table exists. Always fails.',
+    category: 'curiosity-abstract',
+  },
+  {
+    pattern: /\bdetect\b.{0,40}\brecurring\b.{0,40}\b(conversation|session|user)\b/i,
+    reason:  'Cross-conversation recurring pattern detection — no bounded dataset. Rejected pre-flight.',
+    category: 'curiosity-abstract',
+  },
+  {
+    pattern: /problem.{0,20}solving.{0,20}pattern.{0,30}(conversation|session|across)/i,
+    reason:  'Problem-solving pattern inference across conversations — unmeasurable, no concrete table. Rejected.',
+    category: 'curiosity-abstract',
+  },
+
+  // ── Category I: Relevance/attention decay modeling ────────────────────
+  // Root cause: "Avoid modeling subjective concepts (reasoning quality, meaning shift) directly"
+  // Recent failures: "[CURIOSITY] Measure and model how relevance of earlier turns
+  //                  diminishes in long conversations"
+  {
+    pattern: /relevance.{0,30}(diminish|decay|fade|drop|earlier\s+turn)/i,
+    reason:  'Relevance diminishment in conversations is a subjective, unmeasurable concept without a concrete signal table. Always fails.',
+    category: 'curiosity-abstract',
+  },
+  {
+    pattern: /(earlier|prior).{0,20}turn.{0,30}(diminish|decay|relevance|attention)/i,
+    reason:  'Modeling earlier-turn decay across conversation turns — no empirical signal. Rejected pre-flight.',
+    category: 'curiosity-abstract',
+  },
+  {
+    pattern: /\b(attention|relevance|salience)\s+(decay|diminish|drop|fade)\b/i,
+    reason:  'Attention/relevance decay is infrastructure-opaque and subjective — rejected.',
+    category: 'curiosity-abstract',
+  },
+  {
+    pattern: /how.{0,30}(context|relevance|meaning).{0,30}(diminish|decay|fade|lost).{0,30}(long|conversation|turn)/i,
+    reason:  'Modeling context/relevance loss over long conversations has no measurable signal source — rejected.',
+    category: 'curiosity-abstract',
+  },
+
+  // ── Category J: Frameworks without data sources (generic catch) ───────
   {
     pattern: /\[CURIOSITY\].{0,80}(framework|evaluator|system|layer|pipeline)\b/i,
     reason:  'CURIOSITY tasks that build frameworks without a concrete data source always fail or produce zero outcome delta.',
