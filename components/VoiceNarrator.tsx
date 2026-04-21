@@ -7,7 +7,7 @@ const STORAGE_KEY = 'dash:voice-enabled'
 const MAX_CHARS   = 400
 const VOICE_ID    = 'en_GB-alan-medium' // Piper voice — same one isair/jarvis uses
 
-type TtsEngine = 'piper' | 'elevenlabs' | 'browser'
+type TtsEngine = 'elevenlabs' | 'edge' | 'piper' | 'browser'
 
 /**
  * Jarvis narrator with a three-tier priority:
@@ -35,10 +35,11 @@ export default function VoiceNarrator() {
   // Hydrate + discover what's available
   useEffect(() => {
     try { if (localStorage.getItem(STORAGE_KEY) === '1') setEnabled(true) } catch {}
+    // Priority: ElevenLabs (if paid key) → Edge (free neural, no key) → Piper → browser
     fetch('/api/tts').then(r => r.json()).then(d => {
       if (d?.enabled) setEngine('elevenlabs')
-      else setEngine('piper') // default to Piper; falls back to browser if load fails
-    }).catch(() => setEngine('piper'))
+      else setEngine('edge') // free neural voice, no account
+    }).catch(() => setEngine('edge'))
     if (typeof window !== 'undefined') audioRef.current = new Audio()
   }, [])
 
@@ -64,9 +65,10 @@ export default function VoiceNarrator() {
     window.speechSynthesis.onvoiceschanged = pickVoice
   }, [])
 
-  // Lazy-load Piper when the user first enables voice + engine is Piper
+  // Lazy-load Piper only when we actually need it as fallback
   useEffect(() => {
     if (!enabled || engine !== 'piper' || piperReady || typeof window === 'undefined') return
+    // Edge route is preferred before Piper; only reach here if engine was set to piper explicitly
     let cancelled = false
     ;(async () => {
       try {
@@ -139,6 +141,21 @@ export default function VoiceNarrator() {
     } catch { return false }
   }
 
+  async function speakEdge(text: string): Promise<boolean> {
+    try {
+      const r = await fetch('/api/tts/edge', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ text }),
+      })
+      if (!r.ok) return false
+      const blob = await r.blob()
+      if (!blob.size) return false
+      setCharsUsed(c => c + Number(r.headers.get('X-TTS-Chars') ?? text.length))
+      return await playBlob(blob)
+    } catch { return false }
+  }
+
   async function speakPiper(text: string): Promise<boolean> {
     const mod = ttsModRef.current
     if (!mod || !piperReady) return false
@@ -188,8 +205,10 @@ export default function VoiceNarrator() {
       const next = queueRef.current.shift()
       if (!next) break
       let ok = false
-      if (engine === 'elevenlabs') ok = await speakElevenLabs(next)
-      else if (engine === 'piper' && piperReady) ok = await speakPiper(next)
+      if      (engine === 'elevenlabs')            ok = await speakElevenLabs(next)
+      else if (engine === 'edge')                  ok = await speakEdge(next)
+      else if (engine === 'piper' && piperReady)   ok = await speakPiper(next)
+      // Any failure → fall through to browser TTS so the queue never stalls
       if (!ok) await speakBrowser(next)
       await new Promise(r => setTimeout(r, 180))
     }
@@ -204,6 +223,7 @@ export default function VoiceNarrator() {
     else {
       const opener =
         engine === 'elevenlabs'              ? 'Jarvis online. Ready, sir.' :
+        engine === 'edge'                    ? 'Good evening, sir. Systems online.' :
         engine === 'piper' && piperReady     ? 'Systems online. Ready.' :
         engine === 'piper' && !piperReady    ? 'Loading voice model. One moment.' :
                                                "I'll narrate as I think."
@@ -214,22 +234,26 @@ export default function VoiceNarrator() {
 
   const label =
     engine === 'elevenlabs' ? 'JARVIS+' :
+    engine === 'edge'       ? 'JARVIS' :
     engine === 'piper'      ? 'JARVIS' :
                               'VOICE'
 
   const tone =
     engine === 'elevenlabs' ? 'border-amber-600/60 bg-amber-950/40 text-amber-300' :
+    engine === 'edge'       ? 'border-cyan-700/60 bg-cyan-950/40 text-cyan-300'    :
     engine === 'piper'      ? 'border-cyan-700/60 bg-cyan-950/40 text-cyan-300'    :
                               'border-purple-700/60 bg-purple-950/40 text-purple-300'
 
   const title = !enabled
-    ? (engine === 'piper' ? 'Click to enable local Jarvis voice (downloads ~60 MB on first use).' :
-       engine === 'elevenlabs' ? 'Click to enable premium Jarvis voice (ElevenLabs).' :
-       'Click to enable narration (browser TTS).')
-    : (downloading > 0 ? `Downloading voice model: ${downloading}%` :
-       engine === 'elevenlabs' ? `ElevenLabs · ${charsUsed} chars this session. Click to mute.` :
+    ? (engine === 'elevenlabs' ? 'Click to enable premium Jarvis voice (ElevenLabs).' :
+       engine === 'edge'       ? 'Click to enable free neural Jarvis voice (Edge en-GB-RyanNeural).' :
+       engine === 'piper'      ? 'Click to enable local Jarvis voice (downloads ~60 MB on first use).' :
+                                 'Click to enable narration (browser TTS).')
+    : (downloading > 0              ? `Downloading voice model: ${downloading}%` :
+       engine === 'elevenlabs'      ? `ElevenLabs · ${charsUsed} chars this session. Click to mute.` :
+       engine === 'edge'            ? `Edge neural (Ryan) · ${charsUsed} chars. Click to mute.` :
        engine === 'piper' && piperReady ? `Piper local · ${charsUsed} chars. Click to mute.` :
-       'Browser TTS. Click to mute.')
+                                     'Browser TTS. Click to mute.')
 
   return (
     <button
