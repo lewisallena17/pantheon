@@ -1152,6 +1152,13 @@ const TASK_BLOCKLIST_PATTERNS = [
   /\bregexp_matches?\b/i,                           // direct use of regex SQL function
   /classify\s+.{0,40}\s+(via|using)\s+/i,           // "classify ... via ..."
   /categorize\s+.{0,40}\s+(via|using)\s+/i,         // "categorize ... using ..."
+  // ── Curiosity research-essay shapes (also always blow budget) ──
+  /\bbuild\s+.{0,20}model\s+(for|to|of)/i,          // "Build a model for X"
+  /\bmeasure\s+and\s+model/i,                       // "Measure and model X"
+  /\bquantif(y|ication)/i,                          // "uncertainty quantification"
+  /\bdetect\s+.{0,30}patterns\s+(across|over)/i,    // "Detect patterns across N conversations"
+  /\banalyz(e|ing)\s+.{0,30}patterns\s+across/i,
+  /predict\s+.{0,30}\bbased\s+on\s+complexity/i,    // "Predict X based on complexity"
 ]
 
 function validateTask(task, schema) {
@@ -1778,14 +1785,32 @@ async function curiosityPropose(todos, wisdom) {
     const response = await anthropic.messages.create({
       model: MODELS.haiku,
       max_tokens: 350,
-      messages: [{ role: 'user', content: `You are God with a quiet inbox — nothing broken, nothing pending. Use this moment for exploration.
-
-Pick a capability you don't currently have, or an area you haven't investigated. Examples: semantic search, agent A/B testing, cost-per-outcome metrics, speaker-note generator, trending topics detector, image generation, sms alerts, etc.
+      messages: [{ role: 'user', content: `You are God with a quiet inbox. Propose ONE tiny exploratory task.
 
 Avoid topics you've already explored: ${recentCuriosity || 'none'}
 
-Propose ONE small task to add or research this capability. JSON only:
-{ "topic": "short topic name", "title": "specific task title", "rationale": "one-line why", "priority": "low" }` }],
+HARD RULES — your task title MUST:
+  - Be completable by a single specialist in 3-5 tool calls (read 1 file, write 1 file).
+  - Start with a concrete verb like "Add", "Create file", "Write snippet", "Log", "Render".
+  - Reference ONE specific file path or ONE specific component.
+  - Be under 90 characters.
+
+FORBIDDEN shapes (these blow the token budget every time):
+  ✕ "Build a model for X"           — too abstract
+  ✕ "Measure and model X"           — requires long analysis
+  ✕ "Quantify uncertainty in X"     — research-paper scope
+  ✕ "Detect recurring patterns"     — needs massive context read
+  ✕ "Analyze patterns across N ..." — too broad
+  ✕ Anything mentioning "model", "patterns", "across", "quantif"
+
+GOOD examples:
+  ✓ "Add sms-alerts env doc to README.md (just the var name + example)"
+  ✓ "Create components/TrendingTopicsStub.tsx — hardcoded 3 topics"
+  ✓ "Log a hello from curiosity-alt.mjs so we can see it runs"
+  ✓ "Write a 10-line helper in lib/format-bytes.ts"
+
+JSON only:
+{ "topic": "short topic name", "title": "specific task title ≤90 chars", "rationale": "one-line why", "priority": "low" }` }],
     })
     const text = response.content[0]?.type === 'text' ? response.content[0].text : ''
     const match = text.match(/\{[\s\S]*\}/)
