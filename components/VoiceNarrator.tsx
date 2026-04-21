@@ -3,72 +3,62 @@
 import { useEffect, useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
-const STORAGE_KEY  = 'dash:voice-enabled'
-const COOLDOWN_MS  = 2500
-const MAX_CHARS    = 260
+const STORAGE_KEY = 'dash:voice-enabled'
+const MAX_CHARS   = 400
 
 /**
- * Speaks God's "thought" field out loud whenever it changes — tuned for a
- * Jarvis-esque delivery: British male voice (when available), slower measured
- * pace, slightly lower pitch. Also narrates God's "meta" decision payload
- * (decreed task titles, failure postmortems, research findings) so you hear
- * the reasoning, not just the status line.
+ * Jarvis narrator. Primary path: server-side /api/tts proxies to ElevenLabs
+ * (George voice by default) and streams an MP3 blob we play via <audio>.
+ * Fallback: browser SpeechSynthesis — used when no API key is set, when
+ * ElevenLabs returns 401/429 (credit/rate), or when fetch fails entirely.
  *
- * Opt-in via a header toggle; muted by default so the dashboard doesn't
- * surprise-speak. Uses the browser's built-in SpeechSynthesis — no cost.
+ * Opt-in via a header toggle; muted by default.
  */
 export default function VoiceNarrator() {
-  const [enabled, setEnabled] = useState(false)
-  const lastSpokenAtRef = useRef<number>(0)
-  const lastTextRef     = useRef<string>('')
-  const voiceRef        = useRef<SpeechSynthesisVoice | null>(null)
-  const queueRef        = useRef<string[]>([])
+  const [enabled, setEnabled]     = useState(false)
+  const [premium, setPremium]     = useState(false)     // true = ElevenLabs key present
+  const [charsUsed, setCharsUsed] = useState(0)         // session usage counter
 
-  // Hydrate persisted choice
+  const lastTextRef   = useRef<string>('')
+  const voiceRef      = useRef<SpeechSynthesisVoice | null>(null)
+  const queueRef      = useRef<string[]>([])
+  const speakingRef   = useRef<boolean>(false)
+  const audioRef      = useRef<HTMLAudioElement | null>(null)
+
+  // Hydrate persisted choice + discover premium capability
   useEffect(() => {
     try { if (localStorage.getItem(STORAGE_KEY) === '1') setEnabled(true) } catch {}
+    fetch('/api/tts').then(r => r.json()).then(d => { setPremium(Boolean(d?.enabled)) }).catch(() => {})
+    if (typeof window !== 'undefined') audioRef.current = new Audio()
   }, [])
 
-  // Pick the most Jarvis-like voice available. Windows 11 has Ryan (UK neural),
-  // Chrome has Google UK English Male; fall back to anything UK-male.
+  // Fallback voice picker — UK male prioritized for when ElevenLabs is unavailable
   useEffect(() => {
     if (typeof window === 'undefined' || !window.speechSynthesis) return
     function pickVoice() {
       const voices = window.speechSynthesis.getVoices()
       if (!voices.length) return
-
       const score = (v: SpeechSynthesisVoice) => {
         let s = 0
-        const name = v.name.toLowerCase()
-        if (/en.?gb/i.test(v.lang))                         s += 100
-        if (/en.?au/i.test(v.lang))                         s += 40   // Aus male is also passable
-        if (/en/i.test(v.lang))                             s += 20
-        // UK male neural-quality names
-        if (/ryan/.test(name))                              s += 80   // Windows 11 neural UK male
-        if (/george/.test(name))                            s += 60
-        if (/daniel/.test(name))                            s += 55   // macOS UK male
-        if (/google uk english male/.test(name))            s += 70
-        if (/british.*male|uk.*male|male.*british|male.*uk/.test(name)) s += 50
-        if (/natural|neural|premium|online/.test(name))     s += 30
-        // Penalties
-        if (/female|zira|hazel|susan|samantha|karen/.test(name)) s -= 80
-        if (/child|kid|junior/.test(name))                  s -= 30
+        const n = v.name.toLowerCase()
+        if (/en.?gb/i.test(v.lang)) s += 100
+        if (/ryan|george|daniel/.test(n)) s += 70
+        if (/google uk english male/.test(n)) s += 60
+        if (/natural|neural/.test(n)) s += 30
+        if (/female|zira|hazel|susan/.test(n)) s -= 80
         return s
       }
-
-      const ranked = voices.map(v => ({ v, s: score(v) })).sort((a, b) => b.s - a.s)
-      voiceRef.current = ranked[0]?.v ?? voices[0]
+      voiceRef.current = [...voices].sort((a, b) => score(b) - score(a))[0] ?? voices[0]
     }
     pickVoice()
     window.speechSynthesis.onvoiceschanged = pickVoice
   }, [])
 
-  // Subscribe to god_status changes (thought + meta)
+  // Subscribe to god_status changes
   useEffect(() => {
     if (!enabled) return
     const supabase = createClient()
 
-    // Seed last-thought so we don't speak a stale one on mount
     supabase.from('god_status').select('thought').eq('id', 1).single().then(({ data }) => {
       const thought = (data as { thought?: string } | null)?.thought
       if (thought) lastTextRef.current = thought
@@ -81,89 +71,119 @@ export default function VoiceNarrator() {
         const thought = row?.thought ?? ''
         if (!thought || thought === lastTextRef.current) return
         lastTextRef.current = thought
-
-        // If meta carries something richer (decrees, postmortems, findings), prepend
-        // those as follow-up utterances so the narration reflects actual reasoning.
-        const utterances = buildUtterances(thought, row?.meta)
-        queueRef.current.push(...utterances)
+        queueRef.current.push(...buildUtterances(thought, row?.meta))
         drainQueue()
       })
       .subscribe()
 
     return () => {
       supabase.removeChannel(channel)
-      if (typeof window !== 'undefined') window.speechSynthesis?.cancel()
+      stopAll()
       queueRef.current = []
     }
   }, [enabled])
 
-  function drainQueue() {
-    if (!queueRef.current.length) return
-    if (typeof window === 'undefined' || !window.speechSynthesis) return
+  function stopAll() {
+    if (typeof window === 'undefined') return
+    window.speechSynthesis?.cancel()
+    if (audioRef.current) { audioRef.current.pause(); audioRef.current.src = '' }
+    speakingRef.current = false
+  }
 
-    // Serial delivery: speak one, then speak the next after `end`
-    function speakNext() {
-      const next = queueRef.current.shift()
-      if (!next) return
-      const utt = new SpeechSynthesisUtterance(next)
-      utt.rate   = 0.92   // measured, Jarvis-like
-      utt.pitch  = 0.82   // slightly lower register
+  async function speakPremium(text: string): Promise<boolean> {
+    try {
+      const r = await fetch('/api/tts', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ text }),
+      })
+      if (!r.ok) return false
+      const blob = await r.blob()
+      if (!blob.size) return false
+
+      // Track character usage from the header we set server-side
+      const chars = Number(r.headers.get('X-TTS-Chars') ?? text.length)
+      setCharsUsed(c => c + (Number.isFinite(chars) ? chars : 0))
+
+      const url = URL.createObjectURL(blob)
+      const audio = audioRef.current ?? new Audio()
+      audioRef.current = audio
+      audio.src = url
+      await audio.play()
+      return await new Promise<boolean>((resolve) => {
+        const cleanup = () => { URL.revokeObjectURL(url); resolve(true) }
+        audio.onended = cleanup
+        audio.onerror = () => { URL.revokeObjectURL(url); resolve(false) }
+      })
+    } catch {
+      return false
+    }
+  }
+
+  function speakBrowser(text: string): Promise<boolean> {
+    return new Promise(resolve => {
+      if (typeof window === 'undefined' || !window.speechSynthesis) return resolve(false)
+      const utt = new SpeechSynthesisUtterance(text)
+      utt.rate   = 0.92
+      utt.pitch  = 0.82
       utt.volume = 0.9
       if (voiceRef.current) utt.voice = voiceRef.current
-      utt.onend   = () => { setTimeout(speakNext, 180) }
-      utt.onerror = () => { setTimeout(speakNext, 180) }
+      utt.onend   = () => resolve(true)
+      utt.onerror = () => resolve(false)
       window.speechSynthesis.speak(utt)
-      lastSpokenAtRef.current = Date.now()
-    }
+    })
+  }
 
-    // If nothing is currently speaking, start; otherwise let `onend` pick it up.
-    if (!window.speechSynthesis.speaking) speakNext()
+  async function drainQueue() {
+    if (speakingRef.current) return
+    speakingRef.current = true
+    while (queueRef.current.length) {
+      const next = queueRef.current.shift()
+      if (!next) break
+      const premiumOK = premium ? await speakPremium(next) : false
+      if (!premiumOK) await speakBrowser(next)
+      await new Promise(r => setTimeout(r, 180))
+    }
+    speakingRef.current = false
   }
 
   function toggle() {
     const next = !enabled
     setEnabled(next)
     try { localStorage.setItem(STORAGE_KEY, next ? '1' : '0') } catch {}
-    if (!next && typeof window !== 'undefined') {
-      window.speechSynthesis?.cancel()
-      queueRef.current = []
-    }
-    if (next) {
-      // Opener so the user hears confirmation the first time they toggle on
-      queueRef.current.push("Online. I'll narrate as I think.")
+    if (!next) { stopAll(); queueRef.current = [] }
+    else {
+      queueRef.current.push(premium ? 'Jarvis online. Ready, sir.' : "I'll narrate as I think.")
       drainQueue()
     }
   }
 
-  // Mark cooldown as referenced (currently reserved for future rate-limiting)
-  void lastSpokenAtRef
-  void COOLDOWN_MS
+  const label = premium ? 'JARVIS' : 'VOICE'
+  const title = enabled
+    ? (premium ? `ElevenLabs active · ${charsUsed} chars used this session. Click to mute.` : 'Browser TTS active. Set ELEVENLABS_API_KEY for premium voice.')
+    : (premium ? 'Click to enable Jarvis (ElevenLabs, British male).' : 'Click for browser TTS. Set ELEVENLABS_API_KEY for real Jarvis.')
 
   return (
     <button
       onClick={toggle}
-      title={enabled ? 'Muting Jarvis. Click to un-mute.' : 'Speak God\'s thoughts aloud (British male voice when available).'}
+      title={title}
       className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded border text-[10px] font-mono tracking-wider transition-colors ${
         enabled
-          ? 'border-purple-700/60 bg-purple-950/40 text-purple-300'
+          ? (premium ? 'border-amber-600/60 bg-amber-950/40 text-amber-300' : 'border-purple-700/60 bg-purple-950/40 text-purple-300')
           : 'border-slate-700/50 bg-slate-900/40 text-slate-500 hover:text-slate-300'
       }`}
     >
-      <span className={enabled ? 'text-purple-400' : 'text-slate-600'}>
+      <span className={enabled ? (premium ? 'text-amber-400' : 'text-purple-400') : 'text-slate-600'}>
         {enabled ? '◉' : '○'}
       </span>
-      JARVIS {enabled ? 'ON' : 'OFF'}
+      {label} {enabled ? 'ON' : 'OFF'}
+      {enabled && premium && charsUsed > 0 && (
+        <span className="text-amber-400/70 tabular-nums">{Math.round(charsUsed / 1000)}k</span>
+      )}
     </button>
   )
 }
 
-/**
- * Converts a thought line + optional meta into a narration sequence.
- *   - First line: the thought itself (cleaned)
- *   - Then: any task decrees in meta.decreed[] (read one by one)
- *   - Then: any failure postmortem, mood transition, or research headline
- * Each utterance is ≤ MAX_CHARS so the TTS engine doesn't stall.
- */
 function buildUtterances(thought: string, meta?: Record<string, unknown>): string[] {
   const out: string[] = []
   const clean = (s: string) => s.replace(/[⛔★◈◉◎◆✓✕▲▼]/g, '').replace(/\s+/g, ' ').trim().slice(0, MAX_CHARS)
@@ -178,19 +198,10 @@ function buildUtterances(thought: string, meta?: Record<string, unknown>): strin
       if (titles.length === 1)      out.push(`Decreeing: ${clean(titles[0])}`)
       else if (titles.length > 1)   out.push(`Decreeing ${titles.length} tasks. First: ${clean(titles[0])}`)
     }
-
     const lesson = typeof meta.lesson === 'string' ? meta.lesson : null
     if (lesson) out.push(`Lesson learned. ${clean(lesson)}`)
-
     const postmortem = typeof meta.postmortem === 'string' ? meta.postmortem : null
     if (postmortem) out.push(`Postmortem. ${clean(postmortem)}`)
-
-    const mood = typeof meta.mood === 'string' ? meta.mood : null
-    const moodPrev = typeof meta.moodPrev === 'string' ? meta.moodPrev : null
-    if (mood && moodPrev && mood !== moodPrev) {
-      out.push(`Mood shifting from ${moodPrev.toLowerCase()} to ${mood.toLowerCase()}.`)
-    }
   }
-
   return out.filter(Boolean)
 }
