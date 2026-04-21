@@ -353,14 +353,25 @@ function saveResearchLog(log) {
 }
 
 // ── Claude helpers ────────────────────────────────────────────────────────
-async function ask(prompt, { model = 'sonnet', maxTokens = 800 } = {}) {
+async function ask(prompt, { model = 'sonnet', maxTokens = 800, cacheablePrefix = null } = {}) {
   let delay = 60_000
+
+  // If the caller passes a `cacheablePrefix` (stable context repeated across
+  // cycles — schema info, lessons, roadmap), mark it as an ephemeral cache
+  // block. Anthropic charges 10% of input rate on cache reads after first.
+  const content = cacheablePrefix
+    ? [
+        { type: 'text', text: cacheablePrefix, cache_control: { type: 'ephemeral' } },
+        { type: 'text', text: prompt },
+      ]
+    : [{ type: 'text', text: prompt }]
+
   for (let attempt = 0; attempt < 4; attempt++) {
     try {
       const msg = await anthropic.messages.create({
         model: MODELS[model] ?? MODELS.sonnet,
         max_tokens: maxTokens,
-        messages: [{ role: 'user', content: prompt }],
+        messages: [{ role: 'user', content }],
       })
       return msg.content[0]?.type === 'text' ? msg.content[0].text : ''
     } catch (err) {
@@ -382,11 +393,72 @@ async function ask(prompt, { model = 'sonnet', maxTokens = 800 } = {}) {
 }
 
 function extractJSON(text, fallback = null) {
-  const arr = text.match(/\[[\s\S]*?\]/)
-  const obj = text.match(/\{[\s\S]*\}/)
-  try { if (arr) return JSON.parse(arr[0]) } catch {}
-  try { if (obj) return JSON.parse(obj[0]) } catch {}
+  if (!text || typeof text !== 'string') return fallback
+  const stripped = text.replace(/```(?:json)?\s*|\s*```/g, '').trim()
+
+  // Try parsing the whole string first (best case — Claude returned pure JSON)
+  try { return JSON.parse(stripped) } catch {}
+
+  // Greedy array match, then greedy object match, then non-greedy fallbacks
+  const candidates = [
+    stripped.match(/\[[\s\S]*\]/),
+    stripped.match(/\{[\s\S]*\}/),
+    stripped.match(/\[[\s\S]*?\]/),
+    stripped.match(/\{[\s\S]*?\}/),
+  ]
+  for (const m of candidates) {
+    if (!m) continue
+    try { return JSON.parse(m[0]) } catch {}
+  }
   return fallback
+}
+
+/**
+ * Structured output helper — uses tool_use to guarantee valid JSON matching
+ * a schema. Preferred over extractJSON() for new code.
+ *
+ * Usage:
+ *   const result = await askJSON('Give me 3 tasks', {
+ *     schema: {
+ *       type: 'object',
+ *       properties: {
+ *         tasks: { type: 'array', items: { type: 'object', properties: {
+ *           title: { type: 'string' }, priority: { type: 'string' },
+ *         }, required: ['title', 'priority'] } }
+ *       },
+ *       required: ['tasks'],
+ *     },
+ *   })
+ */
+async function askJSON(prompt, { model = 'haiku', maxTokens = 600, schema, toolName = 'emit_result', cacheablePrefix = null } = {}) {
+  const tools = [{
+    name:         toolName,
+    description:  'Return the structured result for this task.',
+    input_schema: schema ?? { type: 'object', properties: { value: {} } },
+  }]
+
+  const content = cacheablePrefix
+    ? [
+        { type: 'text', text: cacheablePrefix, cache_control: { type: 'ephemeral' } },
+        { type: 'text', text: prompt },
+      ]
+    : [{ type: 'text', text: prompt }]
+
+  try {
+    const msg = await anthropic.messages.create({
+      model:        MODELS[model] ?? MODELS.haiku,
+      max_tokens:   maxTokens,
+      tools,
+      tool_choice:  { type: 'tool', name: toolName },
+      messages:     [{ role: 'user', content }],
+    })
+    const block = msg.content.find(b => b.type === 'tool_use')
+    return block?.input ?? null
+  } catch (err) {
+    if (isCreditError(err)) throw err
+    console.log(`[GOD-ASK-JSON] failed: ${err.message?.slice(0, 100)}`)
+    return null
+  }
 }
 
 // ── God status ────────────────────────────────────────────────────────────
@@ -1137,7 +1209,7 @@ const TASK_BLOCKLIST_PATTERNS = [
   /agent_exec_sql\s+wrapper/i,
   /wrap(per)?\s+.{0,20}agent_exec_sql/i,
   /validate\s+.{0,30}agent_exec/i,
-  /pre-?execution\s+(query\s+)?validator/i,
+  /pre-?execution\s+[\w\s]{0,24}validator/i,
   /(pre|post)\s*\/\s*(pre|post)\s+success\s+rate/i,
   /success\s+rate\s+delta/i,
   /outcome\s+delta/i,

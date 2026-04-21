@@ -13,7 +13,7 @@
     "briefing": "node scripts/daily-briefing.mjs",
     "digest": "node scripts/weekly-digest.mjs",
     "start:all": "pm2 start ecosystem.config.cjs",
-    "test": "node --test scripts/god/*.test.mjs",
+    "test": "node --test scripts/god/*.test.mjs && node scripts/blocklist.test.mjs",
     "test:watch": "node --test --watch scripts/god/*.test.mjs"
   },
   "dependencies": {

@@ -864,6 +864,24 @@ async function runAgentLoop(todo, agentName, model, poolName, opts = {}) {
       break
     }
 
+    // ── Pre-call estimation gate ─────────────────────────────────────────
+    // Heuristic: ~3.5 chars per token. If projecting this next call would
+    // push total input past the cap, stop now before burning tokens and
+    // getting cut off mid-thought. Cheaper + gives us a clean summary.
+    const projectedExtraChars = messages.reduce((n, m) => {
+      if (typeof m.content === 'string') return n + m.content.length
+      if (Array.isArray(m.content)) {
+        return n + m.content.reduce((s, b) => s + JSON.stringify(b).length, 0)
+      }
+      return n
+    }, 0)
+    const projectedTokens = totalInputTokens + Math.ceil(projectedExtraChars / 3.5)
+    if (projectedTokens > MAX_INPUT_TOKENS * 0.95) {
+      summary = `Pre-call gate: projected input ~${projectedTokens.toLocaleString()} tokens would exceed cap. Wrapping up with partial progress.`
+      console.log(`[${agentName}] Pre-call gate tripped — stopping before overflow`)
+      break
+    }
+
     // Per-task cost cap — abort if this one task is getting too expensive
     if (totalInputTokens > 10_000) { // only check after warmup
       const estimatedCost = totalInputTokens * (COST_PER_TOKEN[MODELS[model]]?.input ?? 0.0000008)
@@ -888,11 +906,21 @@ async function runAgentLoop(todo, agentName, model, poolName, opts = {}) {
       messages.push(...compressed)
     }
 
+    // Prompt caching: the system prompt + tool schemas are identical across
+    // all iterations of a single task. Marking them as ephemeral cache blocks
+    // makes Anthropic charge 10% of the normal input rate on reads (90% off)
+    // after the first call. Specialists do 7-10 loops per task — this cuts
+    // ~40% off our per-task Claude spend.
     const response = await callWithRetry(() => anthropic.messages.create({
       model: modelId,
       max_tokens: 4096,
-      system: systemPrompt,
-      tools: ALL_TOOLS,
+      system: [
+        { type: 'text', text: systemPrompt, cache_control: { type: 'ephemeral' } },
+      ],
+      tools: ALL_TOOLS.map((t, i) =>
+        // Cache breakpoint on the last tool — covers all tools above it
+        i === ALL_TOOLS.length - 1 ? { ...t, cache_control: { type: 'ephemeral' } } : t
+      ),
       messages,
     }))
 
@@ -1034,6 +1062,51 @@ Reply ONLY with JSON: {"score": 1-5, "reason": "<=15 words"}`
 }
 
 // ── Main task runner (with self-healing retry) ────────────────────────────
+// ── Per-pool circuit breaker ──────────────────────────────────────────────
+// In-memory rolling window of failures & spend per pool. If a pool fails 3×
+// in the last 10 min OR burns > $POOL_HOURLY_CAP in an hour, the breaker
+// opens and future tasks for that pool reset to 'pending' (picked up later
+// once the window expires). Prevents stuck-loop cost explosions.
+const POOL_FAIL_WINDOW_MS  = 10 * 60_000
+const POOL_FAIL_THRESHOLD  = 3
+const POOL_HOURLY_CAP_USD  = 3.0
+const poolFailures  = new Map() // pool → [ts, ts, ts]
+const poolHourlyUsd = new Map() // pool → [{at, usd}]
+const breakerOpenUntil = new Map() // pool → timestamp
+
+function recordPoolFailure(pool) {
+  const arr = (poolFailures.get(pool) ?? []).filter(ts => Date.now() - ts < POOL_FAIL_WINDOW_MS)
+  arr.push(Date.now())
+  poolFailures.set(pool, arr)
+  if (arr.length >= POOL_FAIL_THRESHOLD) {
+    breakerOpenUntil.set(pool, Date.now() + 30 * 60_000)
+    console.log(`[CIRCUIT] ⛔ ${pool} breaker OPEN — ${arr.length} failures in ${POOL_FAIL_WINDOW_MS/60000}m. Pausing 30m.`)
+  }
+}
+
+function recordPoolCost(pool, usd) {
+  const arr = (poolHourlyUsd.get(pool) ?? []).filter(e => Date.now() - e.at < 3600_000)
+  arr.push({ at: Date.now(), usd })
+  poolHourlyUsd.set(pool, arr)
+  const hourly = arr.reduce((s, e) => s + e.usd, 0)
+  if (hourly > POOL_HOURLY_CAP_USD) {
+    breakerOpenUntil.set(pool, Date.now() + 60 * 60_000)
+    console.log(`[CIRCUIT] 💰 ${pool} breaker OPEN — $${hourly.toFixed(2)}/hr > $${POOL_HOURLY_CAP_USD}. Pausing 60m.`)
+  }
+}
+
+function isBreakerOpen(pool) {
+  const until = breakerOpenUntil.get(pool)
+  if (!until) return false
+  if (Date.now() >= until) {
+    breakerOpenUntil.delete(pool)
+    poolFailures.delete(pool)
+    console.log(`[CIRCUIT] ✓ ${pool} breaker CLOSED — resuming`)
+    return false
+  }
+  return true
+}
+
 async function runAgent(todo) {
   const pool  = getPoolFromTodo(todo)
   const model = selectModel(todo)
@@ -1041,6 +1114,17 @@ async function runAgent(todo) {
   const poolName  = pool.name
 
   if (activeAgents.has(todo.id)) return
+
+  // Circuit breaker — bail before spending anything on a misbehaving pool
+  if (isBreakerOpen(poolName)) {
+    const until = breakerOpenUntil.get(poolName)
+    const minsLeft = Math.ceil((until - Date.now()) / 60_000)
+    console.log(`[${poolName}] breaker open, skipping "${todo.title.slice(0, 50)}" (${minsLeft}m remaining)`)
+    // Reset the task to pending so it'll be retried after the breaker clears
+    await supabase.from('todos').update({ status: 'pending', assigned_agent: null }).eq('id', todo.id)
+    return
+  }
+
   activeAgents.set(todo.id, agentName)
 
   if (model !== pool.model) {
@@ -1076,6 +1160,9 @@ async function runAgent(todo) {
       totalCost > 0 ? `API cost: $${totalCost.toFixed(5)}` : null,
     ].filter(Boolean).join('\n')
 
+    // Record hourly cost for this pool's circuit breaker budget gate
+    if (totalCost > 0) recordPoolCost(poolName, totalCost)
+
     console.log(`[${agentName}] Done: ${summary}${costStr}`)
     await addComment(todo.id, agentName, resultText)
     await updateTask(todo.id, 'completed', agentName)
@@ -1099,6 +1186,8 @@ async function runAgent(todo) {
       // Don't mark as failed — reset so it runs when credits/rate limits clear
       await supabase.from('todos').update({ status: 'pending', assigned_agent: null }).eq('id', todo.id)
     } else {
+      // Hard failure — feed the circuit breaker so repeat offenders pause themselves
+      recordPoolFailure(poolName)
       await addComment(todo.id, agentName, `Failed: ${msg}`)
       await updateTask(todo.id, 'failed', agentName)
       await webhook(`✕ [${agentName}] failed: "${todo.title}"`)
