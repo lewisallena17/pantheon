@@ -31,6 +31,7 @@ interface DecisionHistoryEntry {
 
 interface GodIntent {
   activeGoal: string | null
+  cyclesActive?: number
   cycle: number
   decreedTasks: { title: string; priority: string }[]
   reasoning: string
@@ -423,7 +424,20 @@ export default function GodView({ todos }: Props) {
 
             {/* Active goal */}
             <div className="flex-1 min-w-48">
-              <div className="text-[10px] font-mono text-yellow-900 tracking-widest mb-1">CURRENT OBJECTIVE</div>
+              <div className="text-[10px] font-mono text-yellow-900 tracking-widest mb-1 flex items-center gap-2">
+                CURRENT OBJECTIVE
+                {intent.cyclesActive !== undefined && intent.cyclesActive > 0 && (
+                  <span className={`text-[9px] px-1.5 py-0.5 rounded border tabular-nums ${
+                    intent.cyclesActive >= 15
+                      ? 'border-red-700/60    bg-red-950/30    text-red-300 animate-pulse'
+                      : intent.cyclesActive >= 10
+                      ? 'border-amber-700/60  bg-amber-950/30  text-amber-300'
+                      : 'border-yellow-900/40 bg-yellow-950/20 text-yellow-600'
+                  }`}>
+                    {intent.cyclesActive}c active{intent.cyclesActive >= 15 ? ' · STALE' : ''}
+                  </span>
+                )}
+              </div>
               {intent.activeGoal ? (
                 <div className="text-xs font-mono text-yellow-500 font-semibold leading-snug">
                   {intent.activeGoal}

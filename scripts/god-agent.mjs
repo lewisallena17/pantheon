@@ -617,17 +617,27 @@ async function updateRoadmap(todos, schema, wisdom) {
   await setGodThought('Updating strategic roadmap...')
 
   const completedTitles = todos.filter(t => t.status === 'completed').map(t => t.title)
-  const existingGoals   = wisdom.roadmap.goals.map(g => `[${g.status}] ${g.title}`).join('\n') || 'none'
+  const existingGoals   = wisdom.roadmap.goals.map(g => {
+    const age = g.activatedCycle !== undefined ? wisdom.cycles - g.activatedCycle : '?'
+    return `[${g.status}, ${age} cycles active] ${g.title}`
+  }).join('\n') || 'none'
 
   const prompt = `You are GOD planning the strategic direction of a Next.js 14 + Supabase agent dashboard.
 
 EXISTING DB TABLES: ${schema.tableNames}
-COMPLETED WORK: ${completedTitles.slice(0, 15).join(', ') || 'none'}
-CURRENT GOALS: ${existingGoals}
+COMPLETED WORK (last 15): ${completedTitles.slice(0, 15).join(', ') || 'none'}
+CURRENT GOALS:
+${existingGoals}
 
-Define 2-4 high-level strategic goals for the next 10-20 cycles.
-Each goal should be achievable through 3-6 sequential tasks.
-Goals must only reference tables/features that exist or can be built incrementally.
+CURRENT CYCLE: ${wisdom.cycles}
+
+RULES:
+- If an active goal has been running ≥10 cycles, strongly consider marking it "completed" or "abandoned" and proposing a fresh one — stale goals produce stale task proposals.
+- Preserve at most ONE goal older than 10 cycles.
+- Always include at least one goal the council hasn't seen before.
+- Define 2-4 high-level strategic goals for the next 10-20 cycles.
+- Each goal should be achievable through 3-6 sequential tasks.
+- Goals must only reference tables/features that exist or can be built incrementally.
 
 Reply ONLY with JSON array:
 [{"id":"g1","title":"goal title","priority":"high","status":"active","tasksCreated":0}]`
@@ -637,10 +647,25 @@ Reply ONLY with JSON array:
     const goals = extractJSON(raw, wisdom.roadmap.goals)
 
     if (Array.isArray(goals)) {
+      // Preserve activatedCycle on goals whose title survived the rewrite
+      const oldByTitle = new Map(
+        (wisdom.roadmap.goals ?? []).map(g => [g.title?.toLowerCase(), g])
+      )
+      const merged = goals.slice(0, 5).map(g => {
+        const prior = oldByTitle.get(g.title?.toLowerCase())
+        if (prior && g.status === 'active') {
+          return { ...g, activatedCycle: prior.activatedCycle ?? wisdom.cycles }
+        }
+        if (g.status === 'active' && g.activatedCycle === undefined) {
+          return { ...g, activatedCycle: wisdom.cycles }
+        }
+        return g
+      })
+
       return {
         ...wisdom,
         roadmap: {
-          goals: goals.slice(0, 5),
+          goals: merged,
           completedGoals: wisdom.roadmap.completedGoals,
         },
         lastRoadmapUpdate: new Date().toISOString(),
@@ -2239,17 +2264,44 @@ async function divineCycle() {
     await setGodThought(`Decreeing ${newTasks.length} tasks... [Cycle ${wisdom.cycles}]`)
     const created = await decree(newTasks, todos, wisdom.agentStats, wisdom.categoryStats)
 
-    // Build intent: which goal is being pursued and what was just decreed
+    // Build intent: which goal is being pursued and what was just decreed.
+    // Reasoning is cycle-specific so the dashboard visibly changes each cycle.
     const activeGoal = wisdom.roadmap.goals.find(g => g.status === 'active')
+    if (activeGoal && activeGoal.activatedCycle === undefined) {
+      // Stamp the cycle where this goal first became active so we can age it out
+      activeGoal.activatedCycle = wisdom.cycles
+    }
+    const cyclesActive = activeGoal
+      ? wisdom.cycles - (activeGoal.activatedCycle ?? wisdom.cycles)
+      : 0
+
+    const topTitle = newTasks[0]?.title?.slice(0, 70) ?? ''
+    const categoryBreakdown = (() => {
+      const counts = {}
+      for (const t of newTasks) {
+        const c = classifyTask(t.title)
+        counts[c] = (counts[c] ?? 0) + 1
+      }
+      return Object.entries(counts).map(([k, v]) => `${v} ${k}`).join(', ')
+    })()
+
+    let reasoning
+    if (!activeGoal) {
+      reasoning = `Cycle ${wisdom.cycles}: no active roadmap goal. Council picked ${newTasks.length} highest-value task${newTasks.length === 1 ? '' : 's'} (${categoryBreakdown}). Lead: "${topTitle}".`
+    } else if (cyclesActive >= 15) {
+      reasoning = `Cycle ${wisdom.cycles} · goal "${activeGoal.title}" active for ${cyclesActive} cycles — review overdue. This cycle: ${newTasks.length} task${newTasks.length === 1 ? '' : 's'} (${categoryBreakdown}). Lead: "${topTitle}".`
+    } else {
+      reasoning = `Cycle ${wisdom.cycles} · ${cyclesActive} cycles into "${activeGoal.title}". Decreed ${newTasks.length} task${newTasks.length === 1 ? '' : 's'} (${categoryBreakdown}). Lead: "${topTitle}".`
+    }
+
     const intent = {
-      activeGoal: activeGoal?.title ?? null,
-      cycle: wisdom.cycles,
+      activeGoal:  activeGoal?.title ?? null,
+      cyclesActive,
+      cycle:       wisdom.cycles,
       decreedTasks: newTasks.slice(0, 5).map(t => ({ title: t.title, priority: t.priority })),
-      reasoning: activeGoal
-        ? `Pursuing goal: "${activeGoal.title}". Council selected tasks that advance this objective.`
-        : `No active roadmap goal — council chose highest-value available tasks.`,
+      reasoning,
       nextCycleIn: '3 minutes',
-      updatedAt: new Date().toISOString(),
+      updatedAt:   new Date().toISOString(),
     }
     try {
       await supabase.from('god_status').upsert({ id: 1, intent, updated_at: new Date().toISOString() })
