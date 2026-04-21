@@ -2,9 +2,9 @@ import { NextResponse } from 'next/server'
 
 export const dynamic = 'force-dynamic'
 
-// ElevenLabs voice IDs — George is the stock voice closest to Paul Bettany's
-// Jarvis delivery. Override via ELEVENLABS_VOICE_ID in .env.local.
-const DEFAULT_VOICE_ID = 'JBFqnCBsd6RMkjVDRZzb' // George — middle-aged British male
+// ElevenLabs voice ID — user-selected from voice library.
+// Override via ELEVENLABS_VOICE_ID in .env.local.
+const DEFAULT_VOICE_ID = 'wDsJlOXPqcvIUKdLXjDs'
 const MODEL_ID         = 'eleven_turbo_v2_5'     // fast + cheap, multilingual
 const MAX_CHARS        = 400
 
@@ -86,7 +86,7 @@ export async function GET() {
   return NextResponse.json({
     enabled:   Boolean(process.env.ELEVENLABS_API_KEY),
     voiceId:   process.env.ELEVENLABS_VOICE_ID || DEFAULT_VOICE_ID,
-    voiceName: 'George (British)',
+    voiceName: 'Custom (library)',
     model:     MODEL_ID,
   })
 }
