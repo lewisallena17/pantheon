@@ -963,6 +963,12 @@ Example format:
 
     console.log(`[GOD] Learned ${newLessons.length} lessons, ${newSuccess.length} patterns, ${newAvoid.length} avoids`)
 
+    // Surface the freshest lesson so Jarvis can narrate it
+    const freshest = newLessons[0] ?? newSuccess[0] ?? newAvoid[0] ?? null
+    if (freshest) {
+      await setGodThought(`Reflecting: ${freshest.slice(0, 120)}`, { lesson: freshest })
+    }
+
     return {
       ...wisdom,
       lessons:         [...wisdom.lessons,         ...newLessons].slice(-30),
@@ -2256,7 +2262,12 @@ async function divineCycle() {
     wisdom.lastDecrees = newTasks.slice(0, created).map(t => t.title)
     saveWisdom(wisdom)
 
-    const finalMeta = { ...baseMeta }
+    // Include the decreed task titles in meta so the VoiceNarrator can read
+    // them out one by one — richer than just the status line.
+    const finalMeta = {
+      ...baseMeta,
+      decreed: newTasks.slice(0, created).map(t => ({ title: t.title, priority: t.priority })),
+    }
     await setGodThought(
       `${created} tasks decreed | ${successRate}% success | ${wisdom.lessons.length} lessons | Cycle ${wisdom.cycles}${inSafeMode ? ' [SAFE MODE]' : ''}`,
       finalMeta
