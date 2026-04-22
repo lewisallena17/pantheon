@@ -688,6 +688,21 @@ async function updateRoadmap(todos, schema, wisdom) {
 
   await setGodThought('Updating strategic roadmap...')
 
+  // ── Force-retire goals older than 15 cycles BEFORE asking Haiku ──
+  // Haiku tends to re-propose goals it sees in the existing list.
+  // Stripping stale ones from its input forces a fresh roadmap.
+  let autoRetired = 0
+  for (const g of wisdom.roadmap.goals ?? []) {
+    if (g.status === 'active' && g.activatedCycle !== undefined &&
+        wisdom.cycles - g.activatedCycle >= 15) {
+      g.status = 'completed'
+      g.retiredCycle = wisdom.cycles
+      g.retiredReason = 'auto-retired after 15 cycles active'
+      autoRetired++
+    }
+  }
+  if (autoRetired) console.log(`[GOD-ROADMAP] auto-retired ${autoRetired} stale goals`)
+
   const completedTitles = todos.filter(t => t.status === 'completed').map(t => t.title)
   const existingGoals   = wisdom.roadmap.goals.map(g => {
     const age = g.activatedCycle !== undefined ? wisdom.cycles - g.activatedCycle : '?'
