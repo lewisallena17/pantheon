@@ -46,6 +46,10 @@ import QualityDistribution from './QualityDistribution'
 import UserProfile from './UserProfile'
 import BootSplash from './BootSplash'
 import DataTicker from './DataTicker'
+import HouseCup from './HouseCup'
+import TrophyNotifier, { TrophyCase } from './TrophyNotifier'
+import JarvisBriefing from './JarvisBriefing'
+import AgentRPGStats from './AgentRPGStats'
 
 interface Props {
   initialTodos: Todo[]
@@ -128,6 +132,7 @@ export default function DashboardShell({ initialTodos }: Props) {
     <div className="space-y-2 pb-10">
       <BootSplash />
       <DataTicker todos={todos} />
+      <TrophyNotifier todos={todos} />
 
       {/* ── Critical failure banner — renders only when fail rate ≥ 60% ── */}
       <CriticalAlertBanner todos={todos} />
@@ -149,6 +154,12 @@ export default function DashboardShell({ initialTodos }: Props) {
       {/* ── OVERVIEW TAB ─────────────────────────────────────────────── */}
       {tab === 'overview' && (
         <div className={gap}>
+          <JarvisBriefing />
+
+          <HouseCup todos={todos} />
+
+          <TrophyCase todos={todos} />
+
           <UserProfile />
 
           <div className="rounded border border-slate-800/50 bg-black/30 px-4 py-3 space-y-2">
@@ -235,6 +246,8 @@ export default function DashboardShell({ initialTodos }: Props) {
           <div id={SECTION_IDS.pixel}>
             <PixelDungeon todos={todos} />
           </div>
+
+          <AgentRPGStats todos={todos} />
 
           <TrustScores todos={todos} />
 
