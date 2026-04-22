@@ -269,6 +269,12 @@ export class StreamHandler<T = unknown> {
    * Creates checkpoint but items remain buffered for replay
    */
   pause(reason?: string): StreamCheckpoint {
+    // Log checkpoint marker for pause event
+    const pauseTimestamp = new Date().toISOString()
+    console.log(
+      `[stream-checkpoint:pause] ${pauseTimestamp} | streamId=${this.state.streamId} | reason=${reason || 'manual_pause'}`
+    )
+
     this.state.isPaused = true
 
     const checkpoint: StreamCheckpoint = {

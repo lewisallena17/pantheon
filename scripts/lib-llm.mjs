@@ -10,6 +10,8 @@
 // If Ollama is unreachable too, we propagate the original error instead of
 // silently returning null — callers need to know.
 
+import { logResponseWordCount, countWords } from './debug.mjs'
+
 const OLLAMA_URL   = process.env.OLLAMA_URL || 'http://localhost:11434'
 const OLLAMA_MODEL = process.env.OLLAMA_FALLBACK_MODEL || 'llama3.2:3b'
 const FALLBACK_COOLDOWN_MS = 30 * 60_000  // once we fail over, stay on Ollama for 30 min

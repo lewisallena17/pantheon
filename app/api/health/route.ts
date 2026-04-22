@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import { createClient } from '@supabase/supabase-js'
 import { measureAndLog } from '@/lib/response-logger'
 import { logResponseStart, logResponseEnd } from '@/lib/response-timestamps'
+import { logLatencyStart, logLatencyEnd } from '@/lib/latency-logger'
 
 export const dynamic = 'force-dynamic'
 
@@ -121,7 +122,7 @@ function checkCostLog(): CheckResult {
 }
 
 export async function GET() {
-  const start = Date.now()
+  const startMs = logLatencyStart('/api/health', 'GET')
 
   const results = await Promise.all([
     check('supabase',   checkSupabase),
@@ -141,18 +142,17 @@ export async function GET() {
     counts.degraded > 0 ? 'degraded' :
                           'ok'
 
+  const elapsed = Date.now() - startMs
   const response = NextResponse.json({
     overall,
     checks: results,
     counts,
-    totalLatency: Date.now() - start,
+    totalLatency: elapsed,
     at: new Date().toISOString(),
   })
 
-  // Log response timestamp asynchronously (fire-and-forget)
-  measureAndLog(start, '/api/health', 'GET', response.status).catch(() => {
-    // Swallow errors — logging should never fail the response
-  })
+  // Log response generation end to latency.log (fire-and-forget)
+  logLatencyEnd(startMs, '/api/health', 'GET')
 
   return response
 }
