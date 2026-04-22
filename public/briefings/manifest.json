@@ -1,0 +1,12 @@
+{
+  "daily": [
+    {
+      "at": "2026-04-22T16:11:23.220Z",
+      "date": "2026-04-22",
+      "file": "2026-04-22-daily.mp3",
+      "script": "Good morning, sir. In the last twelve hours, the system processed twenty-three tasks with nine completions and one failure. However, thirteen were vetoed—likely your oversight doing its job. We spent eighty-seven cents this window, bringing us to twenty-seven seventy-six all-time. The queue is heavy with curiosity tasks: token counters, logging utilities, and debugging instrumentation. I'd recommend prioritizing the SQL metrics export—it'll give us better visibility into what's actually running versus what we're stopping.",
+      "bytes": 171072
+    }
+  ],
+  "weekly": []
+}

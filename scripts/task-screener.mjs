@@ -3,9 +3,9 @@
  *
  * Kills known-bad task patterns BEFORE they consume tokens.
  *
- * Root cause evidence (god-wisdom.json + global-lessons.json, cycles 1-310):
- *   - ruflo-high:     2,412 failures vs 605 successes
- *   - ruflo-critical:   685 failures vs  34 successes
+ * Root cause evidence (god-wisdom.json + global-lessons.json, cycles 1-340):
+ *   - ruflo-high:     2,432 failures vs 639 successes
+ *   - ruflo-critical:   698 failures vs  35 successes
  *
  * Failure clusters (from CURIOSITY_FAILURE_ANALYSIS.md + avoidPatterns):
  *   A) Abstract/theoretical curiosity tasks with no bounded data source
@@ -16,6 +16,8 @@
  *   F) Self-referential "analyze failure patterns" loops that create new failures
  *   G) Cross-conversation pattern inference (unbounded, no queryable table)
  *   H) Relevance/attention decay modeling across conversations (no measurable signal)
+ *   K) [CURIOSITY] Log/instrument in lib/*.ts before export infrastructure exists
+ *   L) Grounding/observability checks that presuppose a missing export pipeline
  *
  * Each REJECT_RULE has:
  *   pattern  — regex tested against lowercased title+description
@@ -172,47 +174,81 @@ export const REJECT_RULES = [
   // ── Category J: Frameworks without data sources (generic catch) ───────
   {
     pattern: /\[CURIOSITY\].{0,80}(framework|evaluator|system|layer|pipeline)\b/i,
-    reason:  'CURIOSITY tasks that build frameworks without a concrete data source always fail or produce zero outcome delta.',
-    category: 'curiosity-framework',
+    reason:  'CURIOSITY tasks that build frameworks/evaluators/pipelines without a concrete data source always fail — no bounded input. Rejected.',
+    category: 'curiosity-abstract',
+  },
+
+  // ── Category K: Logging/instrumentation in lib/*.ts before export infra ──
+  //
+  // Root cause (cycles 300-340, god-wisdom avoidPatterns):
+  //   "Build curiosity features before supporting observability"
+  //   "Log without export infrastructure ready first"
+  //   "Instrument at source first, correlate later" (success pattern — but the
+  //    instrument step REQUIRES the export table to already exist)
+  //
+  // Exact failed task: "[CURIOSITY] Log response grounding checks in lib/grounding.ts"
+  // Pattern: [CURIOSITY] tasks that write a new lib/*.ts logging module whose
+  // output has nowhere to land because the export/sink table hasn't been built yet.
+  // These always token-budget-exhaust or produce dead code that is never queried.
+  {
+    pattern: /\[CURIOSITY\]\s+log\s+.{0,60}\bin\s+lib\//i,
+    reason:  'CURIOSITY logging tasks in lib/*.ts require a pre-existing export pipeline/sink table — none exists. Instrument after export infra is stable (avoidPattern: Build curiosity features before supporting observability). Rejected.',
+    category: 'infra-dependency',
+  },
+  {
+    pattern: /\[CURIOSITY\]\s+(add|create|implement|write)\s+.{0,40}(log|logging|instrument|tracker)\s+.{0,40}lib\//i,
+    reason:  'CURIOSITY instrumentation in lib/*.ts before export sink exists — always produces dead code. Rejected pre-flight.',
+    category: 'infra-dependency',
+  },
+  {
+    pattern: /log\s+(response\s+)?(grounding|grounding\s+check)/i,
+    reason:  'Response grounding logging requires a stable export/sink table that does not yet exist — rejected (lesson: logging infrastructure must precede instrumentation layers).',
+    category: 'infra-dependency',
+  },
+  {
+    pattern: /\[CURIOSITY\]\s+.{0,60}(log|logging)\s+.{0,40}(check|hook|event|signal)\s+(in|into|to)\s+lib\//i,
+    reason:  'Writing log hooks into lib/ before export infrastructure is ready — always ends in token exhaustion with no queryable output. Rejected.',
+    category: 'infra-dependency',
+  },
+
+  // ── Category L: Observability/grounding curiosity tasks with no pipeline ──
+  //
+  // Root cause (cycles 310-340):
+  //   "Curiosity prototypes need metrics export pipelines first"
+  //   "Logging succeeds; correlation infrastructure remains bottleneck"
+  //
+  // These tasks write files that log grounding/observability signals but have no
+  // export pipeline to read from. They always exhaust token budget producing stubs.
+  {
+    pattern: /\[CURIOSITY\]\s+.{0,80}(grounding|ground\s+check|observabilit|response\s+validat)/i,
+    reason:  'CURIOSITY grounding/observability tasks presuppose an export pipeline that does not exist — always token-exhausts. Build export pipeline first (avoidPattern). Rejected.',
+    category: 'infra-dependency',
+  },
+  {
+    pattern: /grounding\s+(check|log|monitor|track).{0,40}(lib|module|ts|file)/i,
+    reason:  'Grounding check instrumentation requires a pre-existing export sink — lib/*.ts stubs have no consumer. Rejected pre-flight.',
+    category: 'infra-dependency',
+  },
+  {
+    pattern: /\[CURIOSITY\]\s+.{0,60}(correlation|correlate).{0,40}(log|metric|event|rpc)/i,
+    reason:  'CURIOSITY correlation tasks require stable export infrastructure — correlation on incomplete datasets always fails (avoidPattern: Don\'t attempt real-time correlation on incomplete RPC error datasets). Rejected.',
+    category: 'infra-dependency',
   },
 ]
 
-// ── Screener entry point ───────────────────────────────────────────────────
+// ── screenTask ─────────────────────────────────────────────────────────────
 /**
- * Returns { reject: true, reason, category } if the task matches a known-bad
- * pattern, or { reject: false } if it's safe to proceed.
+ * Returns { rejected: true, reason, category } if the task matches a reject
+ * rule, or { rejected: false } if it is safe to proceed.
  *
  * @param {{ title: string, description?: string }} todo
  */
 export function screenTask(todo) {
-  const haystack = `${todo.title ?? ''} ${todo.description ?? ''}`.toLowerCase()
-
+  const haystack = `${todo.title ?? ''} ${todo.description ?? ''}`.trim()
   for (const rule of REJECT_RULES) {
     if (rule.pattern.test(haystack)) {
-      return { reject: true, reason: rule.reason, category: rule.category }
+      return { rejected: true, reason: rule.reason, category: rule.category }
     }
   }
-  return { reject: false }
-}
-
-/**
- * Log a rejection to Supabase todos table (notes field) + console.
- * Fire-and-forget — does not throw.
- *
- * @param {object} supabase   — Supabase client
- * @param {object} todo       — task row
- * @param {string} reason     — human-readable rejection reason
- */
-export async function recordRejection(supabase, todo, reason) {
-  const note = `[PRE-FLIGHT REJECTED] ${new Date().toISOString()} — ${reason}`
-  console.warn(`[task-screener] REJECTED "${todo.title?.slice(0, 80)}" — ${reason}`)
-  try {
-    await supabase
-      .from('todos')
-      .update({ status: 'vetoed', notes: note })
-      .eq('id', todo.id)
-  } catch (e) {
-    // Non-fatal — rejection still logged to console
-    console.error('[task-screener] Failed to write rejection to DB:', e.message?.slice(0, 120))
-  }
+  return { rejected: false }
 }
