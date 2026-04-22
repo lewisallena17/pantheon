@@ -22,9 +22,26 @@
       "YouTube music channel (sleeping/chill music)",
       "Gumroad as primary revenue",
       "Various affiliate programs (LemonSqueezy, ShipFast) — links were broken or flows too manual"
-    ]
+    ],
+    "currentFocus": [
+      "Exporting & correlating anomalies across agent execution logs (agent_sql_execution_log, task_history, conversation patterns) to identify systematic failures",
+      "Improving observability/instrumentation without adding manual overhead (session logging, correlation IDs, error classification)"
+    ],
+    "frustrations": [
+      "Deep instrumentation tasks are failing repeatedly (nesting depth logging, response mutations, correlation_id injection) — suggests complexity or diminishing returns",
+      "Too many [CURIOSITY] tasks being vetoed — he wants *actionable* insights, not logging for logging's sake"
+    ],
+    "excitements": [
+      "Successfully shipping batch exports & anomaly detection (4 recent completions all correlate/export/batch-classify workflows) — he's found a winning pattern",
+      "Moving from raw logs to *classified, correlated insights* (error_type bucketing, misclassification correlation, confidence scoring)"
+    ],
+    "nextSuggestion": "Ship a single-query dashboard widget that shows top 3 agent_sql_execution failure patterns + their correlation to task misclassifications, ranked by frequency — actionable without new instrumentation."
   },
-  "updated_at": "2026-04-19T19:00:00.000Z",
+  "updated_at": "2026-04-22T16:44:33.294Z",
   "cycle": 238,
-  "version": 1
+  "version": 1,
+  "lastDynamicUpdate": {
+    "cycle": 350,
+    "at": "2026-04-22T16:44:33.294Z"
+  }
 }
