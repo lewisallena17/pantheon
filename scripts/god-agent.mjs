@@ -27,6 +27,8 @@ import { runMarketResearch } from './god/market-research.mjs'
 import { runFunnelAnalysis } from './god/funnel-analyzer.mjs'
 import { runListingOptimizer } from './god/listing-optimizer.mjs'
 import { askLLM, isInFallback } from './lib-llm.mjs'
+import { detectEmergentGoals } from './god/goal-emergence.mjs'
+import { updateUserModel, readUserModelSummary } from './god/user-modeler.mjs'
 
 const __dirname   = dirname(fileURLToPath(import.meta.url))
 const PROJECT_ROOT = resolve(__dirname, '..')
@@ -788,10 +790,36 @@ Reply ONLY with JSON array:
         return g
       })
 
+      // ── Emergent goal detection — pattern-based, not prompted ──
+      // Surfaces goals that arose from clustered recent failures. These
+      // are tagged emergent:true so the dashboard can show them distinctly.
+      let emergentAdds = []
+      try {
+        const emergent = await detectEmergentGoals({ supabase, wisdom })
+        for (const e of emergent) {
+          // Skip if the Haiku-proposed list already covers this theme
+          if (merged.some(m => e.keywords.some(k => m.title?.toLowerCase().includes(k)))) continue
+          emergentAdds.push({
+            id:             `emergent-${wisdom.cycles}-${e.keywords[0]}`,
+            title:          e.title,
+            priority:       'high',
+            status:         'active',
+            tasksCreated:   0,
+            rationale:      e.rationale,
+            emergent:       true,
+            activatedCycle: wisdom.cycles,
+            keywords:       e.keywords,
+            sampleFailures: e.sampleFailures,
+          })
+        }
+      } catch (e) {
+        console.log(`[GOD-EMERGENT] detection failed: ${e.message?.slice(0, 80)}`)
+      }
+
       return {
         ...wisdom,
         roadmap: {
-          goals: merged,
+          goals: [...merged, ...emergentAdds].slice(0, 6),
           completedGoals: wisdom.roadmap.completedGoals,
         },
         lastRoadmapUpdate: new Date().toISOString(),
@@ -961,13 +989,19 @@ async function councilThink(todos, schema, wisdom) {
       return `${cat}:${rate}(${total} tasks)`
     }).join(' | ')
 
+  // Theory-of-mind summary — what the user currently cares about
+  const userModel = readUserModelSummary(PROJECT_ROOT)
+  const userBlock = userModel && (userModel.currentFocus?.length || userModel.frustrations?.length)
+    ? `\nUSER CURRENTLY FOCUSED ON: ${(userModel.currentFocus ?? []).join(' | ') || '?'}\nUSER FRUSTRATED BY: ${(userModel.frustrations ?? []).join(' | ') || 'nothing noted'}`
+    : ''
+
   const wisdomBlock = `
 LESSONS (${wisdom.lessons.length}): ${wisdom.lessons.slice(-5).join(' | ') || 'none'}
 AVOID: ${wisdom.avoidPatterns.slice(-5).join(' | ') || 'none'}
 WORKS: ${wisdom.successPatterns.slice(-5).join(' | ') || 'none'}
 GOALS: ${wisdom.roadmap.goals.filter(g => g.status === 'active').map(g => g.title).join(' | ') || 'none'}
 CATEGORY SUCCESS RATES: ${catRates || 'no data yet'}
-BLOCKED TASKS: ${blocked.slice(0,3).map(t=>t.title).join(' | ') || 'none'}`
+BLOCKED TASKS: ${blocked.slice(0,3).map(t=>t.title).join(' | ') || 'none'}${userBlock}`
 
   const context = `
 DB TABLES: ${schema.tableNames}
@@ -979,7 +1013,7 @@ ${wisdomBlock}
 AGENT ROUTING NOTE: db tasks → db-specialist (sonnet), ui tasks → ui-specialist (sonnet), others → ruflo pools.
 Prefer task types with highest category success rates.`
 
-  // Perspective 1: Strategist  |  Perspective 2: Pragmatist  |  Perspective 3: Skeptic
+  // ── ROUND 1 — initial proposals (parallel) ────────────────────────────
   const [strat, prag, skept] = await Promise.all([
     ask(`You are the STRATEGIST on GOD's council.
 Propose 2 tasks that advance the strategic roadmap goals.
@@ -1012,7 +1046,7 @@ Reply ONLY with a list, one per line: "APPROVE: task title" or "REJECT: task tit
     ...(Array.isArray(pragTasks)  ? pragTasks  : []),
   ]
 
-  // Apply skeptic vetoes
+  // Apply skeptic vetoes (ROUND 1 filter)
   if (skept) {
     const rejectedLines = skept.split('\n')
       .filter(l => l.trim().toUpperCase().startsWith('REJECT'))
@@ -1022,7 +1056,58 @@ Reply ONLY with a list, one per line: "APPROVE: task title" or "REJECT: task tit
       allProposed = allProposed.filter(t =>
         !rejectedLines.some(rej => t.title?.toLowerCase().includes(rej.slice(0, 20)))
       )
-      console.log(`[GOD-SKEPTIC] Vetoed ${before - allProposed.length} proposals`)
+      console.log(`[GOD-COUNCIL r1] Skeptic vetoed ${before - allProposed.length} proposals`)
+    }
+  }
+
+  // ── ROUND 2 — critique round (each perspective attacks the survivors) ──
+  // Only runs when we have ≥2 proposals to critique AND deliberation is enabled.
+  // Disable via GOD_DELIBERATE=false if you want to save ~2× council tokens.
+  if (allProposed.length >= 2 && process.env.GOD_DELIBERATE !== 'false') {
+    await setGodThought(`Deliberating — critique round...`)
+    const survivors = allProposed.map((t, i) => `${i + 1}. [${t.priority}] ${t.title} — ${t.rationale ?? ''}`).join('\n')
+
+    const critiqueStrategist = await ask(`You are the STRATEGIST critiquing the council's final proposals.
+Point out ONE strategic weakness in each proposal (too narrow? off-goal? obvious?). Be constructive.
+
+Proposals:
+${survivors}
+
+Reply with one critique per proposal, one line each: "N: <critique>"`, { model: 'haiku', maxTokens: 260 })
+
+    const critiquePragmatist = await ask(`You are the PRAGMATIST critiquing the council's final proposals.
+Point out ONE practical concern per proposal (too big for one agent run? risky? ambiguous requirements?).
+
+Proposals:
+${survivors}
+
+Available tables: ${schema.tableNames}
+Reply with one critique per proposal, one line each: "N: <critique>"`, { model: 'haiku', maxTokens: 260 })
+
+    // ── ROUND 3 — revise, with critiques in hand ──
+    await setGodThought(`Revising based on critiques...`)
+    const reviseRaw = await ask(`You are GOD synthesising a final set of tasks after two rounds of debate.
+
+ORIGINAL PROPOSALS:
+${survivors}
+
+STRATEGIST CRITIQUES:
+${critiqueStrategist ?? '(none)'}
+
+PRAGMATIST CRITIQUES:
+${critiquePragmatist ?? '(none)'}
+
+Drop proposals that took legitimate hits. KEEP proposals where the critique is weak. REFINE any that can be narrowed or clarified. Output at most 3 final proposals.
+
+Reply ONLY with JSON array: [{"title":"refined task","priority":"high|medium|low","rationale":"1-line why"}]`, { model: 'haiku', maxTokens: 400 })
+
+    const revised = extractJSON(reviseRaw, null)
+    if (Array.isArray(revised) && revised.length > 0) {
+      const kept = revised.length
+      console.log(`[GOD-COUNCIL r3] Revised: ${allProposed.length} → ${kept} after critique`)
+      allProposed = revised
+    } else {
+      console.log(`[GOD-COUNCIL r3] Revision parse failed — keeping round 1 survivors`)
     }
   }
 
@@ -2357,6 +2442,13 @@ async function divineCycle() {
 
     // 6. Security audit every 30 cycles (OWASP/STRIDE-style)
     wisdom = await securityAudit(wisdom)
+
+    // ── Theory of mind — update dynamic user model ──
+    try {
+      await updateUserModel({ supabase, anthropic, cycle: wisdom.cycles, projectRoot: PROJECT_ROOT })
+    } catch (e) {
+      console.log(`[GOD-USER] modeler error: ${e.message?.slice(0, 100)}`)
+    }
 
     // 7. Market research every 25 cycles (competitor scan)
     if (wisdom.cycles % 25 === 0 && wisdom.cycles > 0) {

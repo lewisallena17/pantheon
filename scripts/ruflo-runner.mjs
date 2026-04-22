@@ -61,6 +61,67 @@ function getPoolFromTodo(todo) {
   return AGENT_POOL[todo.priority] ?? AGENT_POOL.medium
 }
 
+// ── Curriculum / trust-gated task routing ─────────────────────────────────
+// In-memory pool reliability tracker. After each closed task, we update
+// {completed, failed, last20}. A pool with <60% reliability is in
+// "apprentice" mode — only simple/short tasks route to it. Hits ≥85% on
+// last 20 → graduates. Hits ≤40% → probation (half the flow, only low-pri).
+const poolReliability = new Map()  // pool → { completed, failed, last20: 'C'|'F'[], tier }
+
+function recordPoolOutcome(pool, outcome /* 'completed' | 'failed' */) {
+  const r = poolReliability.get(pool) ?? { completed: 0, failed: 0, last20: [], tier: 'journeyman' }
+  if (outcome === 'completed') r.completed += 1
+  if (outcome === 'failed')    r.failed    += 1
+  r.last20.push(outcome === 'completed' ? 'C' : 'F')
+  if (r.last20.length > 20) r.last20.shift()
+
+  const total = r.completed + r.failed
+  const recent = r.last20.length >= 8
+    ? r.last20.filter(x => x === 'C').length / r.last20.length
+    : (total > 0 ? r.completed / total : 0)
+
+  const prevTier = r.tier
+  if (total < 5)               r.tier = 'apprentice'
+  else if (recent >= 0.85)     r.tier = 'master'
+  else if (recent >= 0.6)      r.tier = 'journeyman'
+  else if (recent >= 0.4)      r.tier = 'probation'
+  else                          r.tier = 'apprentice'
+
+  if (prevTier !== r.tier) {
+    console.log(`[CURRICULUM] ${pool} ${prevTier} → ${r.tier} (recent ${Math.round(recent * 100)}%)`)
+  }
+  poolReliability.set(pool, r)
+}
+
+function taskDifficulty(todo) {
+  // Rough heuristic — short, single-file, non-boss tasks are "easy"
+  const words = (todo.title ?? '').split(/\s+/).length
+  if (todo.is_boss) return 'hard'
+  if (words > 18)   return 'hard'
+  if (/\+/.test(todo.title ?? '') || /across|patterns|classify/i.test(todo.title ?? '')) return 'hard'
+  if (words > 12)   return 'medium'
+  return 'easy'
+}
+
+/** Returns true if this pool is allowed to take this task given its tier. */
+function curriculumAllows(pool, todo) {
+  const r = poolReliability.get(pool)
+  if (!r) return true  // no data yet → allow
+  const diff = taskDifficulty(todo)
+  switch (r.tier) {
+    case 'master':      return true                                    // anything goes
+    case 'journeyman':  return diff !== 'hard' || todo.priority === 'medium' || todo.priority === 'high'
+    case 'apprentice':  return diff === 'easy'
+    case 'probation':   return diff === 'easy' && todo.priority === 'low'
+    default:            return true
+  }
+}
+
+/** Diagnostic — surfaced by the dashboard. */
+export function getCurriculumState() {
+  return Object.fromEntries([...poolReliability.entries()].map(([p, r]) => [p, { ...r, last20: r.last20.join('') }]))
+}
+
 const MAX_PARALLEL = 4
 const activeAgents = new Map()
 
@@ -1155,6 +1216,15 @@ async function runAgent(todo) {
 
   if (activeAgents.has(todo.id)) return
 
+  // Curriculum gate — don't send hard tasks to under-qualified pools
+  if (!curriculumAllows(poolName, todo)) {
+    console.log(`[CURRICULUM] ${poolName} skipping "${todo.title.slice(0, 50)}" (tier too low for task difficulty)`)
+    // Reset to pending so a different pool can pick it up, OR so it waits
+    // until this pool graduates
+    await supabase.from('todos').update({ status: 'pending', assigned_agent: null }).eq('id', todo.id)
+    return
+  }
+
   // Circuit breaker — bail before spending anything on a misbehaving pool
   if (isBreakerOpen(poolName)) {
     const until = breakerOpenUntil.get(poolName)
@@ -1202,6 +1272,8 @@ async function runAgent(todo) {
 
     // Record hourly cost for this pool's circuit breaker budget gate
     if (totalCost > 0) recordPoolCost(poolName, totalCost)
+    // Curriculum tracker — feed success
+    recordPoolOutcome(poolName, 'completed')
 
     console.log(`[${agentName}] Done: ${summary}${costStr}`)
     await addComment(todo.id, agentName, resultText)
@@ -1226,8 +1298,9 @@ async function runAgent(todo) {
       // Don't mark as failed — reset so it runs when credits/rate limits clear
       await supabase.from('todos').update({ status: 'pending', assigned_agent: null }).eq('id', todo.id)
     } else {
-      // Hard failure — feed the circuit breaker so repeat offenders pause themselves
+      // Hard failure — feed both the circuit breaker AND the curriculum tracker
       recordPoolFailure(poolName)
+      recordPoolOutcome(poolName, 'failed')
       await addComment(todo.id, agentName, `Failed: ${msg}`)
       await updateTask(todo.id, 'failed', agentName)
       await webhook(`✕ [${agentName}] failed: "${todo.title}"`)

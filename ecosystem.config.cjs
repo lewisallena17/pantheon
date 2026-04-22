@@ -63,5 +63,14 @@ module.exports = {
       max_restarts: 10,
       env: { NODE_ENV: 'production' },
     },
+    {
+      name: 'god-dreams',
+      script: 'scripts/god-dreams.mjs',
+      watch: false,
+      autorestart: true,
+      restart_delay: 60000,
+      max_restarts: 10,
+      env: { NODE_ENV: 'production' },
+    },
   ],
 }
