@@ -16,7 +16,6 @@ function Analytics() {
   const umamiId  = process.env.NEXT_PUBLIC_UMAMI_WEBSITE_ID
   const umamiSrc = process.env.NEXT_PUBLIC_UMAMI_SRC ?? 'https://cloud.umami.is/script.js'
   const plausibleDomain = process.env.NEXT_PUBLIC_PLAUSIBLE_DOMAIN
-  const adSenseClient   = process.env.NEXT_PUBLIC_ADSENSE_CLIENT_ID
 
   return (
     <>
@@ -36,23 +35,31 @@ function Analytics() {
           defer
         />
       )}
-      {/* Google AdSense — loader only runs when the env var is set.
-          The publisher ID looks like "ca-pub-1234567890123456". */}
-      {adSenseClient && (
-        <Script
-          id="adsense-init"
-          src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${adSenseClient}`}
-          strategy="afterInteractive"
-          crossOrigin="anonymous"
-        />
-      )}
     </>
   )
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  const adSenseClient = process.env.NEXT_PUBLIC_ADSENSE_CLIENT_ID
   return (
     <html lang="en">
+      <head>
+        {/* AdSense loader — MUST be in <head> for Google's verification
+            crawler to accept this site. beforeInteractive strategy loads it
+            as a real inline <script> rather than after hydration. */}
+        {adSenseClient && (
+          <Script
+            id="adsense-init"
+            src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${adSenseClient}`}
+            strategy="beforeInteractive"
+            crossOrigin="anonymous"
+          />
+        )}
+        {/* AdSense ownership meta tag — belt-and-braces verification */}
+        {adSenseClient && (
+          <meta name="google-adsense-account" content={adSenseClient} />
+        )}
+      </head>
       <body className="min-h-screen antialiased">
         {children}
         <Analytics />
