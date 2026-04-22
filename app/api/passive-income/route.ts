@@ -31,9 +31,9 @@ export async function GET() {
   const adSenseConfigured  = Boolean(env.NEXT_PUBLIC_ADSENSE_CLIENT_ID)
   const ezoicConfigured    = Boolean(env.NEXT_PUBLIC_EZOIC_SITE_ID)
   const amazonConfigured   = Boolean(env.AMAZON_ASSOCIATE_TAG)
+  const amazonUkConfigured = Boolean(env.AMAZON_UK_TAG)
   const gumroadConfigured  = Boolean(env.GUMROAD_PRODUCT_URL || env.GUMROAD_ACCESS_TOKEN)
   const stripeConfigured   = Boolean(env.STRIPE_SECRET_KEY)
-  const lemonConfigured    = Boolean(env.LEMON_SQUEEZY_API_KEY)
 
   const streams = [
     {
@@ -60,14 +60,25 @@ export async function GET() {
     },
     {
       id:          'amazon',
-      name:        'Amazon Associates',
+      name:        'Amazon Associates (US)',
       category:    'affiliate',
       handsOff:    9,
       status:      amazonConfigured ? 'active' : 'pending-setup',
       blocker:     amazonConfigured ? null : 'affiliate-program.amazon.com — self-service sign-up. Set AMAZON_ASSOCIATE_TAG.',
-      description: 'Auto-injected links in relevant topic pages (hardware, books, setup gear)',
+      description: 'Auto-injected links in topic pages; US visitors go to amazon.com',
       expected:    '$10–$200/mo at similar traffic — lower than ads but additive',
       nextStep:    amazonConfigured ? 'Agents auto-link on next page generation' : 'Sign up for Amazon Associates',
+    },
+    {
+      id:          'amazon-uk',
+      name:        'Amazon Associates (UK)',
+      category:    'affiliate',
+      handsOff:    9,
+      status:      amazonUkConfigured ? 'active' : 'pending-setup',
+      blocker:     amazonUkConfigured ? null : 'affiliate-program.amazon.co.uk — separate UK program. Set AMAZON_UK_TAG.',
+      description: 'Client-side geo-swap: UK visitors auto-routed to amazon.co.uk with UK tag',
+      expected:    '£10–£180/mo at similar traffic — additive to US',
+      nextStep:    amazonUkConfigured ? 'UK visitors auto-routed' : 'Apply at affiliate-program.amazon.co.uk',
     },
     {
       id:          'gumroad',
