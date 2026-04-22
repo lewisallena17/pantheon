@@ -10,6 +10,7 @@
 
 import type { NextRequest } from 'next/server'
 import { NextResponse } from 'next/server'
+import { logRateLimitExceeded } from './fallback-events'
 
 interface Bucket {
   requests: number[]   // timestamps (ms) of requests in the window
@@ -80,6 +81,19 @@ export function rateLimit(req: NextRequest, pathname: string): NextResponse | nu
   if (bucket.requests.length >= limits.max) {
     const oldest = bucket.requests[0]
     const retryAfter = Math.ceil((oldest + windowMs - now) / 1000)
+    
+    // Log fallback event: rate limit triggered
+    logRateLimitExceeded(
+      pathname,
+      'RateLimiter',
+      {
+        fallbackStrategy: 'RETURN_429',
+        retryAttempts: limits.max,
+        clientKey: key,
+        retryAfterSeconds: retryAfter,
+      },
+    )
+    
     return NextResponse.json({
       error:      'Rate limit exceeded',
       limit:      limits.max,
