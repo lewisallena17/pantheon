@@ -81,7 +81,7 @@ export default function DataTicker({ todos }: Props) {
 
   return (
     <div
-      className="fixed bottom-0 left-0 right-0 h-7 z-40 bg-black/80 backdrop-blur-sm border-t border-cyan-900/40 overflow-hidden pointer-events-none select-none"
+      className="hidden sm:block fixed bottom-0 left-0 right-0 h-7 z-40 bg-black/80 backdrop-blur-sm border-t border-cyan-900/40 overflow-hidden pointer-events-none select-none"
       aria-hidden
     >
       <div className="absolute inset-0 flex items-center">

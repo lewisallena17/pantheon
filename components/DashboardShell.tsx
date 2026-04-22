@@ -53,6 +53,10 @@ import AgentRPGStats from './AgentRPGStats'
 import GoalGraph from './GoalGraph'
 import JarvisVoiceOrb from './JarvisVoiceOrb'
 import PassiveIncomeStatus from './PassiveIncomeStatus'
+import LastDayDigest from './LastDayDigest'
+import PanicButton from './PanicButton'
+import KeyboardShortcuts from './KeyboardShortcuts'
+import RevenueChart from './RevenueChart'
 
 interface Props {
   initialTodos: Todo[]
@@ -158,6 +162,8 @@ export default function DashboardShell({ initialTodos }: Props) {
       {/* ── OVERVIEW TAB ─────────────────────────────────────────────── */}
       {tab === 'overview' && (
         <div className={gap}>
+          <LastDayDigest todos={todos} />
+
           <JarvisBriefing />
 
           <GoalGraph todos={todos} />
@@ -249,6 +255,8 @@ export default function DashboardShell({ initialTodos }: Props) {
             <AgentControlPanel />
           </div>
 
+          <PanicButton />
+
           <div id={SECTION_IDS.pixel}>
             <PixelDungeon todos={todos} />
           </div>
@@ -288,6 +296,7 @@ export default function DashboardShell({ initialTodos }: Props) {
       {tab === 'revenue' && (
         <div className={gap}>
           <PassiveIncomeStatus />
+          <RevenueChart />
           <MarketIntel />
           <RevenueTracker />
           <RevenueAutomation />

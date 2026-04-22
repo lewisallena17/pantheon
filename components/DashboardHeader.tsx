@@ -7,6 +7,7 @@ import VoiceNarrator from './VoiceNarrator'
 import ReadableModeToggle from './ReadableModeToggle'
 import ArcReactor from './ArcReactor'
 import JarvisGreeting from './JarvisGreeting'
+import KeyboardShortcuts from './KeyboardShortcuts'
 import type { Todo } from '@/types/todos'
 
 interface DashboardHeaderProps {
@@ -126,7 +127,7 @@ function StatsTiles({ stats }: { stats: NonNullable<DashboardHeaderProps['stats'
   ]
 
   return (
-    <div className="grid grid-cols-4 gap-2">
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
       {tiles.map(t => (
         <div
           key={t.key}
@@ -190,7 +191,7 @@ export default function DashboardHeader({ isLoading: initialLoading = false, sta
   return (
     <>
       {/* ── Main header row ──────────────────────────────────────────────── */}
-      <div className="flex items-start justify-between pt-4 gap-6">
+      <div className="flex flex-col md:flex-row md:items-start md:justify-between pt-4 gap-4 md:gap-6">
 
         {/* Left: branding */}
         <div className="flex-shrink-0 flex items-start gap-4">
@@ -211,6 +212,7 @@ export default function DashboardHeader({ isLoading: initialLoading = false, sta
               <CreditBalance />
               <VoiceNarrator />
               <ReadableModeToggle />
+              <KeyboardShortcuts />
             </div>
 
             <h1
@@ -238,7 +240,7 @@ export default function DashboardHeader({ isLoading: initialLoading = false, sta
         </div>
 
         {/* Right: four-tile stat grid — the primary at-a-glance panel */}
-        <div className="flex-1 min-w-0 max-w-sm ml-auto">
+        <div className="flex-1 min-w-0 w-full md:max-w-sm md:ml-auto">
           {stats ? (
             <StatsTiles stats={stats} />
           ) : (
