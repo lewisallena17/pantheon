@@ -5,40 +5,35 @@ import { createClient } from '@/lib/supabase/client'
 
 const STORAGE_KEY = 'dash:voice-enabled'
 const MAX_CHARS   = 400
-const VOICE_ID    = 'en_GB-alan-medium' // Piper voice — same one isair/jarvis uses
 
-type TtsEngine = 'elevenlabs' | 'edge' | 'piper' | 'browser'
+type TtsEngine = 'elevenlabs' | 'edge' | 'browser'
 
 /**
- * Jarvis narrator with a three-tier priority:
+ * Jarvis narrator — three-tier priority:
  *   1. ElevenLabs   — if ELEVENLABS_API_KEY set server-side (premium)
- *   2. Piper TTS    — local browser ONNX model (en_GB-alan-medium), no key needed
- *   3. Browser TTS  — last-resort fallback when Piper model can't load
+ *   2. Edge Neural  — free Microsoft Edge Ryan voice via /api/tts/edge
+ *   3. Browser TTS  — last-resort fallback when both above are unavailable
  *
- * Piper downloads a ~60 MB ONNX voice model on first use, cached by the
- * browser afterwards. UX indicates download progress.
+ * Opt-in via header toggle; persisted to localStorage.
  */
 export default function VoiceNarrator() {
-  const [enabled, setEnabled]         = useState(false)
-  const [engine, setEngine]           = useState<TtsEngine>('browser')
-  const [piperReady, setPiperReady]   = useState(false)
-  const [downloading, setDownloading] = useState(0) // 0–100%
-  const [charsUsed, setCharsUsed]     = useState(0)
+  const [enabled, setEnabled]     = useState(false)
+  const [engine, setEngine]       = useState<TtsEngine>('browser')
+  const [charsUsed, setCharsUsed] = useState(0)
 
-  const lastTextRef  = useRef<string>('')
-  const voiceRef     = useRef<SpeechSynthesisVoice | null>(null)
-  const queueRef     = useRef<string[]>([])
-  const speakingRef  = useRef<boolean>(false)
-  const audioRef     = useRef<HTMLAudioElement | null>(null)
-  const ttsModRef    = useRef<typeof import('@mintplex-labs/piper-tts-web') | null>(null)
+  const lastTextRef = useRef<string>('')
+  const voiceRef    = useRef<SpeechSynthesisVoice | null>(null)
+  const queueRef    = useRef<string[]>([])
+  const speakingRef = useRef<boolean>(false)
+  const audioRef    = useRef<HTMLAudioElement | null>(null)
 
   // Hydrate + discover what's available
   useEffect(() => {
     try { if (localStorage.getItem(STORAGE_KEY) === '1') setEnabled(true) } catch {}
-    // Priority: ElevenLabs (if paid key) → Edge (free neural, no key) → Piper → browser
+    // Priority: ElevenLabs (if paid key) → Edge (free neural, no key)
     fetch('/api/tts').then(r => r.json()).then(d => {
       if (d?.enabled) setEngine('elevenlabs')
-      else setEngine('edge') // free neural voice, no account
+      else setEngine('edge')
     }).catch(() => setEngine('edge'))
     if (typeof window !== 'undefined') audioRef.current = new Audio()
   }, [])
@@ -64,31 +59,6 @@ export default function VoiceNarrator() {
     pickVoice()
     window.speechSynthesis.onvoiceschanged = pickVoice
   }, [])
-
-  // Lazy-load Piper only when we actually need it as fallback
-  useEffect(() => {
-    if (!enabled || engine !== 'piper' || piperReady || typeof window === 'undefined') return
-    // Edge route is preferred before Piper; only reach here if engine was set to piper explicitly
-    let cancelled = false
-    ;(async () => {
-      try {
-        const mod = await import('@mintplex-labs/piper-tts-web')
-        if (cancelled) return
-        ttsModRef.current = mod
-        // Trigger download with progress feedback
-        await mod.download(VOICE_ID, (p: { url: string; loaded: number; total: number }) => {
-          if (cancelled) return
-          const pct = p.total > 0 ? Math.round((p.loaded / p.total) * 100) : 0
-          setDownloading(pct)
-        })
-        if (!cancelled) { setPiperReady(true); setDownloading(0) }
-      } catch (e) {
-        console.warn('[Jarvis] Piper load failed, using browser TTS:', e)
-        if (!cancelled) { setEngine('browser'); setDownloading(0) }
-      }
-    })()
-    return () => { cancelled = true }
-  }, [enabled, engine, piperReady])
 
   // Subscribe to god_status changes
   useEffect(() => {
@@ -156,19 +126,6 @@ export default function VoiceNarrator() {
     } catch { return false }
   }
 
-  async function speakPiper(text: string): Promise<boolean> {
-    const mod = ttsModRef.current
-    if (!mod || !piperReady) return false
-    try {
-      const wav = await mod.predict({ text, voiceId: VOICE_ID })
-      setCharsUsed(c => c + text.length)
-      return await playBlob(wav)
-    } catch (e) {
-      console.warn('[Jarvis] Piper predict failed:', e)
-      return false
-    }
-  }
-
   function playBlob(blob: Blob): Promise<boolean> {
     return new Promise((resolve) => {
       const url = URL.createObjectURL(blob)
@@ -205,9 +162,8 @@ export default function VoiceNarrator() {
       const next = queueRef.current.shift()
       if (!next) break
       let ok = false
-      if      (engine === 'elevenlabs')            ok = await speakElevenLabs(next)
-      else if (engine === 'edge')                  ok = await speakEdge(next)
-      else if (engine === 'piper' && piperReady)   ok = await speakPiper(next)
+      if      (engine === 'elevenlabs') ok = await speakElevenLabs(next)
+      else if (engine === 'edge')       ok = await speakEdge(next)
       // Any failure → fall through to browser TTS so the queue never stalls
       if (!ok) await speakBrowser(next)
       await new Promise(r => setTimeout(r, 180))
@@ -222,11 +178,9 @@ export default function VoiceNarrator() {
     if (!next) { stopAll(); queueRef.current = [] }
     else {
       const opener =
-        engine === 'elevenlabs'              ? 'Jarvis online. Ready, sir.' :
-        engine === 'edge'                    ? 'Good evening, sir. Systems online.' :
-        engine === 'piper' && piperReady     ? 'Systems online. Ready.' :
-        engine === 'piper' && !piperReady    ? 'Loading voice model. One moment.' :
-                                               "I'll narrate as I think."
+        engine === 'elevenlabs' ? 'Jarvis online. Ready, sir.' :
+        engine === 'edge'       ? 'Good evening, sir. Systems online.' :
+                                  "I'll narrate as I think."
       queueRef.current.push(opener)
       drainQueue()
     }
@@ -235,25 +189,20 @@ export default function VoiceNarrator() {
   const label =
     engine === 'elevenlabs' ? 'JARVIS+' :
     engine === 'edge'       ? 'JARVIS' :
-    engine === 'piper'      ? 'JARVIS' :
                               'VOICE'
 
   const tone =
     engine === 'elevenlabs' ? 'border-amber-600/60 bg-amber-950/40 text-amber-300' :
-    engine === 'edge'       ? 'border-cyan-700/60 bg-cyan-950/40 text-cyan-300'    :
-    engine === 'piper'      ? 'border-cyan-700/60 bg-cyan-950/40 text-cyan-300'    :
+    engine === 'edge'       ? 'border-cyan-700/60  bg-cyan-950/40  text-cyan-300'    :
                               'border-purple-700/60 bg-purple-950/40 text-purple-300'
 
   const title = !enabled
     ? (engine === 'elevenlabs' ? 'Click to enable premium Jarvis voice (ElevenLabs).' :
-       engine === 'edge'       ? 'Click to enable free neural Jarvis voice (Edge en-GB-RyanNeural).' :
-       engine === 'piper'      ? 'Click to enable local Jarvis voice (downloads ~60 MB on first use).' :
+       engine === 'edge'       ? 'Click to enable free neural Jarvis voice (Edge Ryan).' :
                                  'Click to enable narration (browser TTS).')
-    : (downloading > 0              ? `Downloading voice model: ${downloading}%` :
-       engine === 'elevenlabs'      ? `ElevenLabs · ${charsUsed} chars this session. Click to mute.` :
-       engine === 'edge'            ? `Edge neural (Ryan) · ${charsUsed} chars. Click to mute.` :
-       engine === 'piper' && piperReady ? `Piper local · ${charsUsed} chars. Click to mute.` :
-                                     'Browser TTS. Click to mute.')
+    : (engine === 'elevenlabs' ? `ElevenLabs · ${charsUsed} chars this session. Click to mute.` :
+       engine === 'edge'       ? `Edge neural (Ryan) · ${charsUsed} chars. Click to mute.` :
+                                 'Browser TTS. Click to mute.')
 
   return (
     <button
@@ -263,11 +212,9 @@ export default function VoiceNarrator() {
         enabled ? tone : 'border-slate-700/50 bg-slate-900/40 text-slate-500 hover:text-slate-300'
       }`}
     >
-      <span className={enabled ? '' : 'text-slate-600'}>
-        {enabled ? (downloading > 0 ? '⟳' : '◉') : '○'}
-      </span>
-      {label} {enabled ? (downloading > 0 ? `${downloading}%` : 'ON') : 'OFF'}
-      {enabled && charsUsed > 0 && downloading === 0 && (
+      <span className={enabled ? '' : 'text-slate-600'}>{enabled ? '◉' : '○'}</span>
+      {label} {enabled ? 'ON' : 'OFF'}
+      {enabled && charsUsed > 0 && (
         <span className="opacity-70 tabular-nums">{Math.round(charsUsed / 1000)}k</span>
       )}
     </button>
