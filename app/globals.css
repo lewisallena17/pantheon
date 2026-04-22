@@ -139,6 +139,21 @@ main {
 }
 .ticker-track { animation: ticker-scroll 60s linear infinite; }
 
+/* Trophy pop-in */
+@keyframes trophy-in {
+  0%   { transform: translateX(120%) scale(0.9); opacity: 0; }
+  70%  { transform: translateX(-8px)  scale(1.03); opacity: 1; }
+  100% { transform: translateX(0)     scale(1);    opacity: 1; }
+}
+
+/* Floating +XP numbers for AgentRPGStats */
+@keyframes xp-float {
+  0%   { transform: translateY(0)    scale(0.9); opacity: 0; }
+  15%  { transform: translateY(-8px) scale(1.05); opacity: 1; }
+  75%  { transform: translateY(-30px) scale(1);   opacity: 1; }
+  100% { transform: translateY(-48px) scale(0.95); opacity: 0; }
+}
+
 /* ── Agent movement paths ───────────────────────────── */
 @keyframes patrol-a {
   0%   { transform: translate(0px,   0px);  }
