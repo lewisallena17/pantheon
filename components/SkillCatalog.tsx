@@ -52,9 +52,12 @@ export default function SkillCatalog() {
   }, [])
 
   const skills = useMemo(() => {
-    const acc = new Map<string, { name: string; icon: string; uses: number; wins: number; losses: number; recent: MemEntry[] }>()
+    // v2 — skills now carry a semantic version bumped on every major change.
+    // Patch bump = new lesson added. Minor bump = win/loss ratio flipped.
+    // Major bump = >20 uses and >80% win rate (skill matured).
+    const acc = new Map<string, { name: string; icon: string; uses: number; wins: number; losses: number; recent: MemEntry[]; version: string; rating: number }>()
     for (const rule of SKILL_RULES) {
-      acc.set(rule.name, { name: rule.name, icon: rule.icon, uses: 0, wins: 0, losses: 0, recent: [] })
+      acc.set(rule.name, { name: rule.name, icon: rule.icon, uses: 0, wins: 0, losses: 0, recent: [], version: '0.0.0', rating: 0 })
     }
     for (const e of entries) {
       const name = classify(e.lesson)
@@ -64,6 +67,16 @@ export default function SkillCatalog() {
       if (w === true) s.wins += 1
       else if (w === false) s.losses += 1
       if (s.recent.length < 5) s.recent.push(e)
+    }
+    for (const s of acc.values()) {
+      const rated  = s.wins + s.losses
+      const winPct = rated > 0 ? s.wins / rated : 0
+      const major  = s.uses >= 20 && winPct >= 0.8 ? 1 : 0
+      const minor  = Math.floor(s.wins / 5)
+      const patch  = s.uses % 100
+      s.version    = `${major}.${minor}.${patch}`
+      // 1-5 star rating: blends volume and accuracy
+      s.rating = Math.min(5, Math.round((winPct * 3) + Math.min(2, s.uses / 10)))
     }
     return [...acc.values()]
       .filter(s => s.uses > 0)
@@ -103,6 +116,10 @@ export default function SkillCatalog() {
               >
                 <span className="text-sm">{s.icon}</span>
                 <span className="text-[11px] font-mono text-slate-300 w-44 truncate">{s.name}</span>
+                <span className="text-[9px] font-mono text-cyan-600/80 tabular-nums w-14 text-right">v{s.version}</span>
+                <span className="text-[10px] text-amber-400 tabular-nums w-12 text-center" title={`${s.rating}/5 rating`}>
+                  {'★'.repeat(s.rating)}{'☆'.repeat(5 - s.rating)}
+                </span>
                 <div className="flex-1 h-1 bg-slate-900 rounded overflow-hidden">
                   <div className="h-full bg-cyan-700/60" style={{ width: `${pct}%` }} />
                 </div>

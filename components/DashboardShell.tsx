@@ -50,6 +50,8 @@ import HouseCup from './HouseCup'
 import TrophyNotifier, { TrophyCase } from './TrophyNotifier'
 import JarvisBriefing from './JarvisBriefing'
 import AgentRPGStats from './AgentRPGStats'
+import GoalGraph from './GoalGraph'
+import JarvisVoiceOrb from './JarvisVoiceOrb'
 
 interface Props {
   initialTodos: Todo[]
@@ -133,6 +135,7 @@ export default function DashboardShell({ initialTodos }: Props) {
       <BootSplash />
       <DataTicker todos={todos} />
       <TrophyNotifier todos={todos} />
+      <JarvisVoiceOrb />
 
       {/* ── Critical failure banner — renders only when fail rate ≥ 60% ── */}
       <CriticalAlertBanner todos={todos} />
@@ -155,6 +158,8 @@ export default function DashboardShell({ initialTodos }: Props) {
       {tab === 'overview' && (
         <div className={gap}>
           <JarvisBriefing />
+
+          <GoalGraph todos={todos} />
 
           <HouseCup todos={todos} />
 
