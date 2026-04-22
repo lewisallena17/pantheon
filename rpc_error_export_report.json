@@ -1,0 +1,114 @@
+{
+  "export_timestamp": "2026-04-21T22:01:22.971668+00:00",
+  "export_method": "export_rpc_error_log_via_agent_exec",
+  "summary": {
+    "total_errors": 8,
+    "by_error_type": {
+      "other": 6,
+      "timeout": 1,
+      "connection": 1
+    },
+    "resolved_count": 6,
+    "unresolved_count": 2
+  },
+  "classification_rules": {
+    "timeout": "error_code LIKE '%timeout%' OR error_message LIKE '%timeout%'",
+    "connection": "error_code LIKE '%connection%' OR error_message LIKE '%connection%'",
+    "rate_limit": "error_code LIKE '%429%' OR error_message LIKE '%rate_limit%'",
+    "authentication": "error_code LIKE '%auth%' OR error_message LIKE '%auth%'",
+    "not_found": "error_code LIKE '%404%' OR error_message LIKE '%not found%'",
+    "validation": "error_code LIKE '%validation%' OR error_message LIKE '%validation%'",
+    "unknown": "error_code IS NULL AND error_message IS NULL",
+    "other": "Default fallback for unmatched errors"
+  },
+  "data": [
+    {
+      "id": "6898b446-eab8-44dd-9105-b3e1b347cbc2",
+      "agent_name": "Agent Alice",
+      "rpc_name": "get_task_throughput",
+      "error_code": "PGRST001",
+      "error_type": "timeout",
+      "error_message": "Connection timeout after 5000ms",
+      "resolved": true,
+      "resolved_at": "2026-04-21T19:15:28.689236+00:00",
+      "created_at": "2026-04-21T20:15:28.689236+00:00"
+    },
+    {
+      "id": "a6d490e3-98d3-4690-b6e0-582ee971feef",
+      "agent_name": "Agent Bob",
+      "rpc_name": "create_anomaly_event",
+      "error_code": "PGRST002",
+      "error_type": "other",
+      "error_message": "Failed to parse JSON response: expected string, got null",
+      "resolved": true,
+      "resolved_at": "2026-04-21T18:15:28.689236+00:00",
+      "created_at": "2026-04-21T20:15:28.689236+00:00"
+    },
+    {
+      "id": "5b69d1fe-a4cb-4b7f-b906-ff0b3961f600",
+      "agent_name": "Agent Charlie",
+      "rpc_name": "dismiss_anomaly",
+      "error_code": "42P01",
+      "error_type": "connection",
+      "error_message": "relation \"connection_quality_events\" does not exist",
+      "resolved": false,
+      "resolved_at": null,
+      "created_at": "2026-04-21T20:15:28.689236+00:00"
+    },
+    {
+      "id": "04d34129-170a-4e20-8ef7-6fa3281ad8bf",
+      "agent_name": "Agent Alice",
+      "rpc_name": "export_rpc_error_log",
+      "error_code": "PGRST003",
+      "error_type": "other",
+      "error_message": "Rate limit exceeded: 1000 requests/minute",
+      "resolved": true,
+      "resolved_at": "2026-04-21T19:45:28.689236+00:00",
+      "created_at": "2026-04-21T20:15:28.689236+00:00"
+    },
+    {
+      "id": "b056f928-28da-4810-a43d-e078fa8ebeb2",
+      "agent_name": "Agent Dave",
+      "rpc_name": "agent_exec_sql",
+      "error_code": "42601",
+      "error_type": "other",
+      "error_message": "syntax error at or near \"SELECT\"",
+      "resolved": true,
+      "resolved_at": "2026-04-21T19:30:28.689236+00:00",
+      "created_at": "2026-04-21T20:15:28.689236+00:00"
+    },
+    {
+      "id": "d3ae8dcb-8985-4d4f-b7ac-2896630fb5c7",
+      "agent_name": "Agent Eve",
+      "rpc_name": "get_actor_activity_counts",
+      "error_code": "PGRST004",
+      "error_type": "other",
+      "error_message": "Request body too large: 5MB limit exceeded",
+      "resolved": false,
+      "resolved_at": null,
+      "created_at": "2026-04-21T20:15:28.689236+00:00"
+    },
+    {
+      "id": "b51c180d-9eb5-4f28-b40d-d1d2b6af276c",
+      "agent_name": "Agent Frank",
+      "rpc_name": "handle_updated_at",
+      "error_code": "NULL_CONSTRAINT",
+      "error_type": "other",
+      "error_message": "NOT NULL constraint violation on column task_id",
+      "resolved": true,
+      "resolved_at": "2026-04-21T19:15:28.689236+00:00",
+      "created_at": "2026-04-21T20:15:28.689236+00:00"
+    },
+    {
+      "id": "34f1c870-f46d-4c7d-82c3-f96c65c5baf9",
+      "agent_name": "Agent Grace",
+      "rpc_name": "create_anomaly_event",
+      "error_code": "PGRST005",
+      "error_type": "other",
+      "error_message": "Unknown error occurred",
+      "resolved": false,
+      "resolved_at": null,
+      "created_at": "2026-04-21T20:15:28.689236+00:00"
+    }
+  ]
+}
