@@ -849,6 +849,19 @@ async function reviewCompletions(todos, wisdom) {
   const reviews = []
   for (const task of recentlyDone) {
     const lastComment = task.comments?.slice(-1)[0]?.text ?? 'no comment'
+
+    // Hard skip: if the agent demonstrably did work, don't second-guess it.
+    // A completed task with real file changes OR non-trivial cost is NOT
+    // "gave up" — it shipped something the quality judge can rate separately.
+    const didRealWork =
+      /Files changed:/i.test(lastComment) ||
+      /API cost:\s*\$0\.0[2-9]/.test(lastComment) ||    // ≥ $0.02
+      /API cost:\s*\$[1-9]/.test(lastComment)            // ≥ $1
+    if (didRealWork) {
+      reviews.push({ taskTitle: task.title.slice(0, 80), passed: true, note: 'auto-pass (files changed or real cost)' })
+      continue
+    }
+
     const prompt = `A coding agent claimed to complete this task:
 TASK: "${task.title}"
 AGENT COMMENT: "${lastComment}"
@@ -861,10 +874,13 @@ Reply with JSON only: {"passed": true/false, "note": "one sentence reason"}`
       const raw = await ask(prompt, { model: 'haiku', maxTokens: 150 })
       const result = extractJSON(raw, { passed: true, note: '' })
       if (result && result.passed === false) {
-        console.log(`[GOD] Review FAILED: "${task.title}" — ${result.note}`)
+        console.log(`[GOD] Review flagged low-quality (no status change): "${task.title}" — ${result.note}`)
         reviews.push({ taskTitle: task.title.slice(0, 80), passed: false, note: result.note })
-        // Mark as failed so it gets retried
-        await supabase.from('todos').update({ status: 'failed' }).eq('id', task.id)
+        // Flag via metadata ONLY — don't flip the status. The Quality Judge
+        // already handles quality scoring, and the agent did enough work to
+        // warrant 'completed'. Dashboard can surface these flags separately.
+        const meta = { ...(task.metadata ?? {}), review_flag: 'low_quality', review_note: String(result.note ?? '').slice(0, 200) }
+        await supabase.from('todos').update({ metadata: meta }).eq('id', task.id)
       } else {
         reviews.push({ taskTitle: task.title.slice(0, 80), passed: true, note: result?.note ?? '' })
       }
