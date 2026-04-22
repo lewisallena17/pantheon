@@ -44,20 +44,19 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <head>
-        {/* AdSense loader — MUST be in <head> for Google's verification
-            crawler to accept this site. beforeInteractive strategy loads it
-            as a real inline <script> rather than after hydration. */}
+        {/* AdSense verification requires a LITERAL <script> tag in <head>.
+            Next.js's <Script> component renders a deferred loader instead,
+            which the crawler doesn't recognise as AdSense integration.
+            Emit the real tag here so Google sees it in the initial HTML. */}
         {adSenseClient && (
-          <Script
-            id="adsense-init"
-            src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${adSenseClient}`}
-            strategy="beforeInteractive"
-            crossOrigin="anonymous"
-          />
-        )}
-        {/* AdSense ownership meta tag — belt-and-braces verification */}
-        {adSenseClient && (
-          <meta name="google-adsense-account" content={adSenseClient} />
+          <>
+            <script
+              async
+              src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${adSenseClient}`}
+              crossOrigin="anonymous"
+            />
+            <meta name="google-adsense-account" content={adSenseClient} />
+          </>
         )}
       </head>
       <body className="min-h-screen antialiased">

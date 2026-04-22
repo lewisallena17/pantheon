@@ -1,23 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Piper TTS runs in the browser via WASM and a web worker. Next.js needs
-  // these headers so SharedArrayBuffer works (the WASM requires it).
-  async headers() {
-    return [
-      {
-        source: '/:path*',
-        headers: [
-          { key: 'Cross-Origin-Opener-Policy', value: 'same-origin' },
-          { key: 'Cross-Origin-Embedder-Policy', value: 'require-corp' },
-        ],
-      },
-    ]
-  },
-  webpack: (config) => {
-    // Piper-tts-web ships WASM + ONNX model loaders; don't let webpack choke on them
-    config.resolve.fallback = { ...config.resolve.fallback, fs: false, path: false, crypto: false }
-    return config
-  },
+  // No custom response headers. We previously set Cross-Origin-Embedder-Policy:
+  // require-corp for Piper TTS's SharedArrayBuffer requirement, but Piper has
+  // been removed and COEP blocks Google AdSense (and most third-party iframes
+  // that don't serve the CORP header). Leaving this empty restores normal
+  // cross-origin loading for ads + analytics + AdSense verification.
 }
 
 export default nextConfig
