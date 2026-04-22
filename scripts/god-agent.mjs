@@ -1231,6 +1231,12 @@ const TASK_BLOCKLIST_PATTERNS = [
   /\bdetect\s+.{0,30}patterns\s+(across|over)/i,    // "Detect patterns across N conversations"
   /\banalyz(e|ing)\s+.{0,30}patterns\s+across/i,
   /predict\s+.{0,30}\bbased\s+on\s+complexity/i,    // "Predict X based on complexity"
+  // ── Multi-table export/read patterns (12 failures on 2026-04-22) ──
+  /\bexport\s+\w+[_\w]*\s*\+\s*\w+/i,               // "Export agent_sql_execution_log + task_throughput_events"
+  /\bread\s+\w+[_\w]*\s*\+\s*\w+/i,                 // "read task_history + problem_solving_patterns"
+  /\bclassify\s+by\s+\w/i,                          // "classify by success_rate"
+  /\bclassifier\b/i,                                // any "task-priority classifier" tasks
+  /\bclassified\s+by\s+\w/i,                        // "errors classified by error_type"
 ]
 
 function validateTask(task, schema) {

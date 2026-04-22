@@ -51,6 +51,10 @@ const CASES = [
   { title: '[CURIOSITY] Measure and model how relevance diminishes',         mustBlock: true },
   { title: '[CURIOSITY] Detect recurring problem-solving patterns across N', mustBlock: true },
   { title: '[CURIOSITY] Predict token generation time based on complexity',  mustBlock: true },
+  // Round 3 — "Export/Read X + Y + classify by" shapes (12 fails 2026-04-22)
+  { title: 'Export agent_sql_execution_log + task_throughput_events via agent_exec_sql', mustBlock: true },
+  { title: 'Build task-priority classifier: read task_history + problem_solving_patterns', mustBlock: true },
+  { title: 'Export RPC errors from rpc_error_log classified by error_type',              mustBlock: true },
 
   // ── Must-NOT-block — known good tasks ─────────────────────────────────
   { title: 'Add a CreditBalance pill in the header',                 mustBlock: false },

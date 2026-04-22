@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { readFileSync, existsSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { createClient } from '@supabase/supabase-js'
+import { measureAndLog } from '@/lib/response-logger'
 
 export const dynamic = 'force-dynamic'
 
@@ -139,11 +140,18 @@ export async function GET() {
     counts.degraded > 0 ? 'degraded' :
                           'ok'
 
-  return NextResponse.json({
+  const response = NextResponse.json({
     overall,
     checks: results,
     counts,
     totalLatency: Date.now() - start,
     at: new Date().toISOString(),
   })
+
+  // Log response timestamp asynchronously (fire-and-forget)
+  measureAndLog(start, '/api/health', 'GET', response.status).catch(() => {
+    // Swallow errors — logging should never fail the response
+  })
+
+  return response
 }
