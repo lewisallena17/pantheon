@@ -16,6 +16,7 @@ function Analytics() {
   const umamiId  = process.env.NEXT_PUBLIC_UMAMI_WEBSITE_ID
   const umamiSrc = process.env.NEXT_PUBLIC_UMAMI_SRC ?? 'https://cloud.umami.is/script.js'
   const plausibleDomain = process.env.NEXT_PUBLIC_PLAUSIBLE_DOMAIN
+  const adSenseClient   = process.env.NEXT_PUBLIC_ADSENSE_CLIENT_ID
 
   return (
     <>
@@ -33,6 +34,16 @@ function Analytics() {
           data-domain={plausibleDomain}
           strategy="afterInteractive"
           defer
+        />
+      )}
+      {/* Google AdSense — loader only runs when the env var is set.
+          The publisher ID looks like "ca-pub-1234567890123456". */}
+      {adSenseClient && (
+        <Script
+          id="adsense-init"
+          src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${adSenseClient}`}
+          strategy="afterInteractive"
+          crossOrigin="anonymous"
         />
       )}
     </>

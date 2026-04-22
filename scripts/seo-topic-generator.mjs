@@ -194,6 +194,7 @@ ${codeBlock}
 
   return `import type { Metadata } from 'next'
 import Link from 'next/link'
+import DisplayAd from '@/components/DisplayAd'
 
 export const metadata: Metadata = {
   title:       '${safeTitle}',
@@ -221,7 +222,13 @@ export default function Topic() {
 
         <p className="text-slate-300 leading-relaxed mb-8 text-lg">{\`${safeIntro}\`}</p>
 
+        {/* Above-fold display ad — renders placeholder until NEXT_PUBLIC_ADSENSE_CLIENT_ID is set */}
+        <DisplayAd slot="topic-top" format="auto" className="my-6" />
+
 ${sectionsJsx}
+
+        {/* Mid-article display ad */}
+        <DisplayAd slot="topic-mid" format="auto" className="my-8" />
 
         <section className="mb-6">
           <h2 className="text-xl font-bold text-slate-100 mt-8 mb-3">Open-source implementation</h2>

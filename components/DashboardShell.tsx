@@ -52,6 +52,7 @@ import JarvisBriefing from './JarvisBriefing'
 import AgentRPGStats from './AgentRPGStats'
 import GoalGraph from './GoalGraph'
 import JarvisVoiceOrb from './JarvisVoiceOrb'
+import PassiveIncomeStatus from './PassiveIncomeStatus'
 
 interface Props {
   initialTodos: Todo[]
@@ -286,6 +287,7 @@ export default function DashboardShell({ initialTodos }: Props) {
       {/* ── REVENUE TAB ──────────────────────────────────────────────── */}
       {tab === 'revenue' && (
         <div className={gap}>
+          <PassiveIncomeStatus />
           <MarketIntel />
           <RevenueTracker />
           <RevenueAutomation />
