@@ -257,8 +257,15 @@ ${sectionsJsx}
           </div>
         </section>
 
-        <footer className="mt-10 pt-6 border-t border-slate-800/60 text-[11px] font-mono text-slate-500">
+        <footer className="mt-10 pt-6 border-t border-slate-800/60 text-[11px] font-mono text-slate-500 space-y-2">
           <p>Part of{' '}<Link href="/topics" className="text-cyan-500 hover:underline">the pantheon knowledge base</Link>. Articles are generated + updated by the god agent itself.</p>
+          <div className="flex gap-4 flex-wrap pt-2">
+            <Link href="/" className="hover:text-cyan-400">home</Link>
+            <Link href="/topics" className="hover:text-cyan-400">articles</Link>
+            <Link href="/about" className="hover:text-cyan-400">about</Link>
+            <Link href="/privacy" className="hover:text-cyan-400">privacy</Link>
+            <Link href="/contact" className="hover:text-cyan-400">contact</Link>
+          </div>
         </footer>
       </article>
     </main>
