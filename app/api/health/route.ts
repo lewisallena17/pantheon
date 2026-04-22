@@ -3,6 +3,7 @@ import { readFileSync, existsSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { createClient } from '@supabase/supabase-js'
 import { measureAndLog } from '@/lib/response-logger'
+import { logResponseStart, logResponseEnd } from '@/lib/response-timestamps'
 
 export const dynamic = 'force-dynamic'
 

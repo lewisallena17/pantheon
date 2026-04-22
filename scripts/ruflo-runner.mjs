@@ -514,40 +514,80 @@ APPROACH: one sentence on implementation strategy`
 }
 
 // ── Context compression ────────────────────────────────────────────────────
+// Jaccard token-set similarity — cheap, no embeddings needed
+function jaccard(a, b) {
+  const sa = new Set(String(a).toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(w => w.length >= 4))
+  const sb = new Set(String(b).toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(w => w.length >= 4))
+  if (!sa.size || !sb.size) return 0
+  let inter = 0
+  for (const t of sa) if (sb.has(t)) inter++
+  return inter / (sa.size + sb.size - inter)
+}
+
+/**
+ * Entroly-style similarity compression:
+ *   1. Extract tool_use calls + their tool_result responses from mid-history.
+ *   2. Dedupe near-duplicates (Jaccard ≥ 0.75) — repeatedly reading the same
+ *      file, re-running the same grep, etc. Keep the last instance only.
+ *   3. Summarise the deduped action log with Haiku in ≤3 bullets.
+ *   4. Replay the last 2 tool interactions intact so Claude has fresh
+ *      context for its next move.
+ */
 async function compressMessages(messages) {
   if (messages.length <= 8) return messages
 
-  const midMessages = messages.slice(1, -4)
-  const summaryLines = midMessages.flatMap(m => {
-    if (m.role === 'assistant') {
-      const tools = (Array.isArray(m.content) ? m.content : [])
-        .filter(b => b.type === 'tool_use')
-        .map(b => `  ${b.name}(${JSON.stringify(b.input).slice(0, 60)})`)
-      return tools.length ? [tools.join(', ')] : []
+  const head = messages[0]                        // original task prompt
+  const tail = messages.slice(-4)                 // freshest 4 messages — may contain unresolved tool_use
+  const mid  = messages.slice(1, -4)
+
+  // Extract canonical one-liners for each mid action
+  // Shape: { kind: 'call' | 'result', text: string, idx: number }
+  const lines = []
+  for (const [i, m] of mid.entries()) {
+    if (m.role === 'assistant' && Array.isArray(m.content)) {
+      for (const b of m.content) {
+        if (b.type === 'tool_use') {
+          lines.push({ kind: 'call',   text: `${b.name}(${JSON.stringify(b.input).slice(0, 100)})`, idx: i })
+        }
+      }
+    } else if (m.role === 'user' && Array.isArray(m.content)) {
+      for (const b of m.content) {
+        if (b.type === 'tool_result') {
+          lines.push({ kind: 'result', text: `→ ${String(b.content).slice(0, 180)}`, idx: i })
+        }
+      }
     }
-    if (m.role === 'user' && Array.isArray(m.content)) {
-      return m.content
-        .filter(r => r.type === 'tool_result')
-        .map(r => `  → ${String(r.content).slice(0, 80)}`)
-    }
-    return []
-  })
+  }
+
+  // Dedupe: iterate in order, keeping only the last occurrence of any
+  // near-duplicate action (Jaccard ≥ 0.75 on content)
+  const kept = []
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const cur = lines[i]
+    const dup = kept.some(k => k.kind === cur.kind && jaccard(k.text, cur.text) >= 0.75)
+    if (!dup) kept.push(cur)
+  }
+  kept.reverse()
+  const removed = lines.length - kept.length
 
   try {
+    const summaryPrompt = removed > 0
+      ? `Summarize these agent actions in 3 brief bullets. Note: ${removed} near-duplicate actions were removed (agent re-reading same files).\n${kept.slice(0, 30).map(l => l.text).join('\n')}`
+      : `Summarize these agent actions in 3 brief bullets:\n${kept.slice(0, 30).map(l => l.text).join('\n')}`
+
     const msg = await anthropic.messages.create({
       model: MODELS.haiku,
-      max_tokens: 200,
-      messages: [{ role: 'user', content: `Summarize these agent actions in 3 bullet points (very brief):\n${summaryLines.slice(0, 20).join('\n')}` }]
+      max_tokens: 220,
+      messages: [{ role: 'user', content: summaryPrompt }],
     })
     const summary = msg.content[0]?.text ?? 'Work in progress.'
-    // Clean-slate compression: keep the original task prompt, inject the
-    // summary as assistant text, then resume with a plain user nudge.
-    // We do NOT keep the old tail — a tool_result without its matching
-    // tool_use block breaks Anthropic's API validation (the old code used
-    // a fake tool_use_id: 'ctx-compress' which got rejected on every call).
+
+    // Clean-slate output: task prompt → summary → nudge to continue.
+    // We drop the messy tool_result/tool_use pairs in the tail since they
+    // frequently break API validation (unmatched IDs after compression).
     return [
-      messages[0],
-      { role: 'assistant', content: [{ type: 'text', text: `Progress so far:\n${summary}` }] },
+      head,
+      { role: 'assistant', content: [{ type: 'text', text: `Progress so far${removed > 0 ? ` (deduped ${removed} redundant actions)` : ''}:\n${summary}` }] },
       { role: 'user', content: 'Continue from where you left off.' },
     ]
   } catch {

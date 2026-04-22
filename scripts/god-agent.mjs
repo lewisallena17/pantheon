@@ -26,6 +26,7 @@ import { publishSharedBatch } from './lib-shared-memory.mjs'
 import { runMarketResearch } from './god/market-research.mjs'
 import { runFunnelAnalysis } from './god/funnel-analyzer.mjs'
 import { runListingOptimizer } from './god/listing-optimizer.mjs'
+import { askLLM, isInFallback } from './lib-llm.mjs'
 
 const __dirname   = dirname(fileURLToPath(import.meta.url))
 const PROJECT_ROOT = resolve(__dirname, '..')
@@ -176,6 +177,24 @@ function gitExec(cmd) {
 
 function hasGitRepo() { return gitExec('git rev-parse --is-inside-work-tree') === 'true' }
 
+// ── Runtime rollback support (model-watchdog pattern) ─────────────────────
+// After every auto-commit we write a pending record to pending-commits.json.
+// The watchdog process checks each record: once 20 tasks have closed since
+// the commit, if success rate dropped >15pp vs the 20 tasks before, revert.
+const PENDING_COMMITS_PATH = join(PROJECT_ROOT, 'scripts', 'pending-commits.json')
+
+function loadPendingCommits() {
+  try { return JSON.parse(readFileSync(PENDING_COMMITS_PATH, 'utf8')) } catch { return { pending: [] } }
+}
+
+function recordPendingCommit(entry) {
+  try {
+    const log = loadPendingCommits()
+    log.pending = [...(log.pending ?? []).slice(-19), entry]
+    writeFileSync(PENDING_COMMITS_PATH, JSON.stringify(log, null, 2), 'utf8')
+  } catch {}
+}
+
 async function autoCommit({ cycle, source, summary, files }) {
   if (!hasGitRepo()) return null
 
@@ -203,6 +222,9 @@ async function autoCommit({ cycle, source, summary, files }) {
   const safeSummary = summary.replace(/"/g, "'").slice(0, 72)
   gitExec(`git commit -m "${subjectPrefix} cycle ${cycle}: ${safeSummary}"`)
   const sha = gitExec('git rev-parse --short HEAD')
+
+  // Record pending verification — watchdog checks success rate 20 tasks later
+  recordPendingCommit({ sha, cycle, source, summary: safeSummary, at: new Date().toISOString() })
 
   // ── Verification — revert if the edit broke the build ────────────────────
   if (process.env.GOD_VERIFY !== 'false') {
@@ -356,6 +378,17 @@ function saveResearchLog(log) {
 async function ask(prompt, { model = 'sonnet', maxTokens = 800, cacheablePrefix = null } = {}) {
   let delay = 60_000
 
+  // If we're already in Ollama-fallback mode (previous credit error set it),
+  // route through askLLM which handles provider selection + error handling.
+  if (isInFallback()) {
+    try {
+      const { text, provider } = await askLLM({ anthropic, prompt, model, maxTokens, models: MODELS })
+      if (provider === 'ollama') console.log(`[GOD] ⇄ ollama fallback answered`)
+      return text
+    } catch {}
+    // fall through to the Anthropic path below
+  }
+
   // If the caller passes a `cacheablePrefix` (stable context repeated across
   // cycles — schema info, lessons, roadmap), mark it as an ephemeral cache
   // block. Anthropic charges 10% of input rate on cache reads after first.
@@ -376,8 +409,14 @@ async function ask(prompt, { model = 'sonnet', maxTokens = 800, cacheablePrefix 
       return msg.content[0]?.type === 'text' ? msg.content[0].text : ''
     } catch (err) {
       if (isCreditError(err)) {
-        console.error('[GOD] ⛔ CREDIT EXHAUSTED — pausing. Top up at console.anthropic.com/billing')
-        throw err  // propagate immediately — no retry
+        console.error('[GOD] ⛔ credit exhausted — routing to Ollama fallback')
+        // Route this call through askLLM so Ollama picks it up; also flips
+        // the inFallback flag so subsequent calls skip Anthropic for 30 min.
+        try {
+          const { text, provider } = await askLLM({ anthropic, prompt, model, maxTokens, models: MODELS })
+          if (provider === 'ollama') return text
+        } catch {}
+        throw err  // Ollama unreachable too — propagate so caller can pause
       }
       const is429 = err.status === 429 || err.message?.includes('rate_limit')
       if (is429 && attempt < 3) {

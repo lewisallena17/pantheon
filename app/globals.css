@@ -146,6 +146,18 @@ main {
   100% { transform: translateX(0)     scale(1);    opacity: 1; }
 }
 
+/* Jarvis voice-orb morph */
+@keyframes orb-morph {
+  0%, 100% { transform: scale(1)    translate(0,   0);   border-radius: 50%; }
+  25%      { transform: scale(1.08) translate(6px, -4px); border-radius: 45% 55% 50% 50%; }
+  50%      { transform: scale(0.96) translate(-4px, 3px); border-radius: 55% 45% 60% 40%; }
+  75%      { transform: scale(1.04) translate(3px,  5px); border-radius: 48% 52% 45% 55%; }
+}
+@keyframes orb-core {
+  0%, 100% { opacity: 0.9; transform: scale(1);    }
+  50%      { opacity: 1;   transform: scale(1.15); }
+}
+
 /* Floating +XP numbers for AgentRPGStats */
 @keyframes xp-float {
   0%   { transform: translateY(0)    scale(0.9); opacity: 0; }
