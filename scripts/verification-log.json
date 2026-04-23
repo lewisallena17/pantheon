@@ -1,0 +1,67 @@
+{
+  "entries": [
+    {
+      "at": "2026-04-23T17:25:20.342Z",
+      "kind": "seo-page",
+      "ok": true,
+      "context": {
+        "slug": "owasp-top-10-for-ai-agents",
+        "h1": "OWASP Top 10 Applied to AI Agent Systems"
+      },
+      "bytes": 10904
+    },
+    {
+      "at": "2026-04-23T17:25:33.961Z",
+      "kind": "seo-page",
+      "ok": true,
+      "context": {
+        "slug": "claude-batch-api-cost-50-percent-savings",
+        "h1": "Claude Batch API — 50% Cost Reduction for Async Work"
+      },
+      "bytes": 9950
+    },
+    {
+      "at": "2026-04-23T17:25:48.810Z",
+      "kind": "seo-page",
+      "ok": true,
+      "context": {
+        "slug": "auto-commit-auto-revert-ai-code",
+        "h1": "Auto-Commit and Auto-Revert for AI-Generated Code"
+      },
+      "bytes": 10094
+    },
+    {
+      "at": "2026-04-23T17:25:54.264Z",
+      "kind": "devto-post",
+      "ok": true,
+      "context": {
+        "kind": "devto-post",
+        "url": "https://dev.to/lewisallena17/building-a-self-improving-god-agent-with-claude-ai-3j84",
+        "id": 3542461,
+        "title": "Building a Self-Improving God Agent with Claude AI"
+      },
+      "status": 200,
+      "bytes": 105433
+    },
+    {
+      "at": "2026-04-23T17:59:30.835Z",
+      "kind": "seo-page",
+      "ok": true,
+      "context": {
+        "slug": "securing-llm-tool-calls-production",
+        "h1": "Securing LLM Tool Calls in Production"
+      },
+      "bytes": 9886
+    },
+    {
+      "at": "2026-04-23T17:59:46.615Z",
+      "kind": "seo-page",
+      "ok": true,
+      "context": {
+        "slug": "autonomous-seo-landing-page-farm",
+        "h1": "Building an Autonomous SEO Landing Page Farm"
+      },
+      "bytes": 10894
+    }
+  ]
+}

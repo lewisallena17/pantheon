@@ -1399,6 +1399,15 @@ const TASK_BLOCKLIST_PATTERNS = [
   /\bclassify\s+by\s+\w/i,                          // "classify by success_rate"
   /\bclassifier\b/i,                                // any "task-priority classifier" tasks
   /\bclassified\s+by\s+\w/i,                        // "errors classified by error_type"
+  // ── Consumer-less utility creation (27-file cleanup on 2026-04-23) ──
+  // God kept shipping lib/*-logger.ts, lib/*-analyzer.ts, lib/*-handler.ts
+  // files that nothing imported. "Task succeeded" because file was written,
+  // but nobody consumed the code. 6,668 lines of dead weight accumulated
+  // over weeks before the audit caught it. Block the shape outright unless
+  // the task title explicitly names a consumer ("… used by <component>").
+  /\b(?:create|add|implement|write|build)\s+.{0,40}lib\/\w+[\w-]*(?:logger|analyzer|handler|tracker|validator|parser|formatter|router|stack)\b/i,
+  /\b(?:observability|instrumentation|telemetry)\s+(?:layer|module|utility|utilit(?:ies|y))/i,
+  /\bresponse\s+(?:lifecycle|envelope|finish|completion)\s+(?:log|tracker|marker|detector)/i,
 ]
 
 function validateTask(task, schema) {

@@ -56,6 +56,14 @@ const CASES = [
   { title: 'Build task-priority classifier: read task_history + problem_solving_patterns', mustBlock: true },
   { title: 'Export RPC errors from rpc_error_log classified by error_type',              mustBlock: true },
 
+  // Round 4 — consumer-less utility sprawl (6,668 lines deleted 2026-04-23)
+  { title: 'Create lib/response-finish-logger.ts for tracking',                          mustBlock: true },
+  { title: 'Add lib/silence-recovery-handler.ts utility',                                mustBlock: true },
+  { title: 'Build instrumentation layer for response lifecycle',                         mustBlock: true },
+  { title: 'Implement response completion marker detector',                              mustBlock: true },
+  // Must NOT block: utilities with named consumers
+  { title: 'Add lib/useProgress.ts used by AgentRPGStats component',                     mustBlock: false },
+
   // ── Must-NOT-block — known good tasks ─────────────────────────────────
   { title: 'Add a CreditBalance pill in the header',                 mustBlock: false },
   { title: 'Query todos LIMIT 10 for the inbox',                     mustBlock: false },
