@@ -59,6 +59,8 @@ import KeyboardShortcuts from './KeyboardShortcuts'
 import RevenueChart from './RevenueChart'
 import VerificationPanel from './VerificationPanel'
 import AgentConversations from './AgentConversations'
+import PanelShell from './PanelShell'
+import MobileDisclosure from './MobileDisclosure'
 
 interface Props {
   initialTodos: Todo[]
@@ -161,54 +163,68 @@ export default function DashboardShell({ initialTodos }: Props) {
         onToggleCompact={() => setCompact(v => !v)}
       />
 
-      {/* ── OVERVIEW TAB ─────────────────────────────────────────────── */}
+      {/* ── OVERVIEW TAB — three zones: top (always), middle (collapsed), bottom ── */}
       {tab === 'overview' && (
         <div className={gap}>
+          {/* ZONE 1 — always visible. The "what do I need to know" layer. */}
           <LastDayDigest todos={todos} />
 
-          <JarvisBriefing />
-
           <GoalGraph todos={todos} />
-
-          <HouseCup todos={todos} />
-
-          <TrophyCase todos={todos} />
-
-          <UserProfile />
-
-          <div className="rounded border border-slate-800/50 bg-black/30 px-4 py-3 space-y-2">
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-[10px] font-mono text-slate-700 tracking-[0.25em] uppercase select-none">
-                ◈ System Status
-              </span>
-              <ConnectionStatus status={status} />
-            </div>
-            <StatsBar todos={todos} />
-          </div>
-
-          {/* ── Failed Fast-Lane: surface failed tasks immediately on Overview ── */}
-          <FailedFastLane todos={todos} onRetried={handleRetried} />
-
-          <div id={SECTION_IDS.inbox}>
-            <TaskInbox todos={todos} />
-          </div>
-
-          <CIStatus />
 
           <div id={SECTION_IDS.god}>
             <GodView todos={todos} />
           </div>
 
-          <div id={SECTION_IDS.active}>
-            <ActiveAgent todos={todos} />
-          </div>
+          {/* Failed Fast-Lane auto-hides when empty, so it's here if needed */}
+          <FailedFastLane todos={todos} onRetried={handleRetried} />
 
-          <div id={SECTION_IDS.cost}>
-            <CostTracker />
-          </div>
+          {/* ZONE 2 — collapsed by default. The "everything else" layer. */}
+          <PanelShell
+            id="overview-more"
+            title="More Panels"
+            icon="▾"
+            collapsible
+            defaultOpen={false}
+            chipRight={<span className="text-[10px] font-mono text-slate-600">briefings · trophies · houses · inbox · cost · profile</span>}
+          >
+            <div className={`p-3 ${gap}`}>
+              <JarvisBriefing />
 
-          <NotificationStatus />
+              <HouseCup todos={todos} />
 
+              <TrophyCase todos={todos} />
+
+              <UserProfile />
+
+              <div className="rounded border border-slate-800/50 bg-black/30 px-4 py-3 space-y-2">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-[10px] font-mono text-slate-700 tracking-[0.25em] uppercase select-none">
+                    ◈ System Status
+                  </span>
+                  <ConnectionStatus status={status} />
+                </div>
+                <StatsBar todos={todos} />
+              </div>
+
+              <div id={SECTION_IDS.inbox}>
+                <TaskInbox todos={todos} />
+              </div>
+
+              <CIStatus />
+
+              <div id={SECTION_IDS.active}>
+                <ActiveAgent todos={todos} />
+              </div>
+
+              <div id={SECTION_IDS.cost}>
+                <CostTracker />
+              </div>
+
+              <NotificationStatus />
+            </div>
+          </PanelShell>
+
+          {/* ZONE 3 — always-open streaming feed at the bottom */}
           <Collapsible id="overview-feed" title="Live Feed" defaultOpen={!compact}>
             <div id={SECTION_IDS.feed}>
               <LiveFeed />
@@ -267,9 +283,13 @@ export default function DashboardShell({ initialTodos }: Props) {
 
           <AgentConversations />
 
-          <TrustScores todos={todos} />
+          <MobileDisclosure id="trust-scores" label="Trust scores">
+            <TrustScores todos={todos} />
+          </MobileDisclosure>
 
-          <SkillCatalog />
+          <MobileDisclosure id="skill-catalog" label="Skill catalog">
+            <SkillCatalog />
+          </MobileDisclosure>
 
           <EavesdropFeed />
 
@@ -277,9 +297,11 @@ export default function DashboardShell({ initialTodos }: Props) {
             <AgentXPBar todos={todos} />
           </Collapsible>
 
-          <Collapsible id="agents-comparison" title="Agent Comparison">
-            <AgentComparisonTable todos={todos} />
-          </Collapsible>
+          <MobileDisclosure id="agent-comparison" label="Agent comparison">
+            <Collapsible id="agents-comparison" title="Agent Comparison">
+              <AgentComparisonTable todos={todos} />
+            </Collapsible>
+          </MobileDisclosure>
 
           <Collapsible id="agents-feed" title="Live Log Feed">
             <div id={SECTION_IDS.feed}>
