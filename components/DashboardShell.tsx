@@ -61,6 +61,19 @@ import VerificationPanel from './VerificationPanel'
 import AgentConversations from './AgentConversations'
 import PanelShell from './PanelShell'
 import MobileDisclosure from './MobileDisclosure'
+import TimeWindowPicker from './TimeWindowPicker'
+import { TimeWindowProvider } from '@/lib/useTimeWindow'
+import TaskTraceDrawer from './TaskTraceDrawer'
+import AgentDrilldown from './AgentDrilldown'
+import AskGod from './AskGod'
+import WeekHighlights from './WeekHighlights'
+import AlertRules from './AlertRules'
+import ForwardCalendar from './ForwardCalendar'
+import SystemNews from './SystemNews'
+import ForYouFeed from './ForYouFeed'
+import MetricOverlayChart from './MetricOverlayChart'
+import AgentPoolStrip from './AgentPoolStrip'
+import RecentTasksStrip from './RecentTasksStrip'
 
 interface Props {
   initialTodos: Todo[]
@@ -82,6 +95,35 @@ export default function DashboardShell({ initialTodos }: Props) {
   const [log, setLog]         = useState<LogEntry[]>([])
   const [tab, setTab]         = useState<TabKey>('overview')
   const [compact, setCompact] = useState(false)
+
+  // Shared cost data (drives WeekHighlights, AlertRules, MetricOverlayChart)
+  const [costByAgent, setCostByAgent]   = useState<Record<string, number>>({})
+  const [costSessions, setCostSessions] = useState<Array<{ at: string; cost: number; agent: string }>>([])
+
+  // Drawer state — opened from anywhere via the handlers below
+  const [selectedTodo, setSelectedTodo] = useState<Todo | null>(null)
+  const [selectedPool, setSelectedPool] = useState<string | null>(null)
+
+  useEffect(() => {
+    async function loadCost() {
+      try {
+        const r = await fetch('/api/cost', { cache: 'no-store' })
+        if (r.ok) {
+          const j = await r.json() as { byAgent?: Record<string, number>; sessions?: Array<{ at: string; cost: number; agent: string }> }
+          setCostByAgent(j.byAgent ?? {})
+          setCostSessions(j.sessions ?? [])
+        }
+      } catch {}
+    }
+    loadCost()
+    const id = setInterval(loadCost, 30_000)
+    return () => clearInterval(id)
+  }, [])
+
+  const todaySpend = useMemo(() => {
+    const today = new Date().toISOString().slice(0, 10)
+    return costSessions.filter(s => s.at?.startsWith(today)).reduce((sum, s) => sum + (s.cost ?? 0), 0)
+  }, [costSessions])
 
   // Hydrate saved tab + density from localStorage
   useEffect(() => {
@@ -140,6 +182,7 @@ export default function DashboardShell({ initialTodos }: Props) {
   const gap = compact ? 'space-y-2' : 'space-y-4'
 
   return (
+    <TimeWindowProvider>
     <div className="space-y-2 pb-10">
       <BootSplash />
       <DataTicker todos={todos} />
@@ -166,14 +209,30 @@ export default function DashboardShell({ initialTodos }: Props) {
       {/* ── OVERVIEW TAB — three zones: top (always), middle (collapsed), bottom ── */}
       {tab === 'overview' && (
         <div className={gap}>
+          {/* Global time window picker — respected by panels that opt in */}
+          <div className="flex items-center justify-end gap-2 px-1">
+            <span className="text-[9px] font-mono text-slate-700 tracking-widest uppercase">window:</span>
+            <TimeWindowPicker />
+          </div>
+
           {/* ZONE 1 — always visible. The "what do I need to know" layer. */}
           <LastDayDigest todos={todos} />
 
+          <WeekHighlights todos={todos} costByAgent={costByAgent} />
+
+          <ForYouFeed todos={todos} />
+
+          <AlertRules todos={todos} todaySpend={todaySpend} />
+
           <GoalGraph todos={todos} />
+
+          <ForwardCalendar todos={todos} />
 
           <div id={SECTION_IDS.god}>
             <GodView todos={todos} />
           </div>
+
+          <AskGod />
 
           {/* Failed Fast-Lane auto-hides when empty, so it's here if needed */}
           <FailedFastLane todos={todos} onRetried={handleRetried} />
@@ -221,6 +280,10 @@ export default function DashboardShell({ initialTodos }: Props) {
               </div>
 
               <NotificationStatus />
+
+              <SystemNews />
+
+              <MetricOverlayChart todos={todos} costSessions={costSessions} />
             </div>
           </PanelShell>
 
@@ -236,6 +299,8 @@ export default function DashboardShell({ initialTodos }: Props) {
       {/* ── TASKS TAB ────────────────────────────────────────────────── */}
       {tab === 'tasks' && (
         <div className={gap}>
+          <RecentTasksStrip todos={todos} onPick={setSelectedTodo} />
+
           {/* ── Failed Fast-Lane: pinned above everything on Tasks tab too ── */}
           <FailedFastLane todos={todos} onRetried={handleRetried} />
 
@@ -272,6 +337,8 @@ export default function DashboardShell({ initialTodos }: Props) {
           <div id={SECTION_IDS.controls}>
             <AgentControlPanel />
           </div>
+
+          <AgentPoolStrip todos={todos} onPick={setSelectedPool} />
 
           <PanicButton />
 
@@ -360,6 +427,11 @@ export default function DashboardShell({ initialTodos }: Props) {
           <VerificationPanel />
         </div>
       )}
+
+      {/* ── Drawers (portals) ──────────────────────────────────────────── */}
+      <TaskTraceDrawer todo={selectedTodo} onClose={() => setSelectedTodo(null)} />
+      <AgentDrilldown  pool={selectedPool} todos={todos} costByAgent={costByAgent} onClose={() => setSelectedPool(null)} />
     </div>
+    </TimeWindowProvider>
   )
 }
