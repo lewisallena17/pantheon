@@ -23,6 +23,7 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import Anthropic from '@anthropic-ai/sdk'
 import { verifyTsxPage, verifyAndLog } from './lib-verify.mjs'
+import { translateContent, TARGET_LANGS } from './lib-translator.mjs'
 
 const __dirname    = dirname(fileURLToPath(import.meta.url))
 const PROJECT_ROOT = resolve(__dirname, '..')
@@ -170,7 +171,7 @@ Output ONLY valid JSON. No markdown, no preamble:
   return JSON.parse(match[0])
 }
 
-function renderPage(topic, content) {
+function renderPage(topic, content, locale = 'en') {
   const sectionsJsx = content.sections.map(s => {
     const paragraphs = (s.bodyParagraphs ?? []).map(p => {
       const safe = p.replace(/`/g, '\\`').replace(/\$/g, '\\$')
@@ -198,14 +199,27 @@ import Link from 'next/link'
 import DisplayAd from '@/components/DisplayAd'
 import AmazonGeoSwap from '@/components/AmazonGeoSwap'
 
+const CANONICAL_PATH = '${locale === 'en' ? `/topics/${topic.slug}` : `/${locale}/topics/${topic.slug}`}'
+
 export const metadata: Metadata = {
   title:       '${safeTitle}',
   description: '${safeDesc}',
+  alternates: {
+    canonical: '${SITE_URL}' + CANONICAL_PATH,
+    languages: {
+      'en':    '${SITE_URL}/topics/${topic.slug}',
+      'es':    '${SITE_URL}/es/topics/${topic.slug}',
+      'de':    '${SITE_URL}/de/topics/${topic.slug}',
+      'fr':    '${SITE_URL}/fr/topics/${topic.slug}',
+      'x-default': '${SITE_URL}/topics/${topic.slug}',
+    },
+  },
   openGraph: {
     title:       '${safeTitle}',
     description: '${safeDesc}',
     type:        'article',
-    url:         '${SITE_URL}/topics/${topic.slug}',
+    locale:      '${locale === 'en' ? 'en_US' : locale === 'es' ? 'es_ES' : locale === 'de' ? 'de_DE' : locale === 'fr' ? 'fr_FR' : 'en_US'}',
+    url:         '${SITE_URL}' + CANONICAL_PATH,
   },
   twitter: { card: 'summary_large_image', title: '${safeTitle}', description: '${safeDesc}' },
 }
@@ -298,17 +312,46 @@ async function generateOne() {
   const dir = join(TOPICS_DIR, topic.slug)
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
   const pagePath = join(dir, 'page.tsx')
-  writeFileSync(pagePath, renderPage(topic, content), 'utf8')
+  writeFileSync(pagePath, renderPage(topic, content, 'en'), 'utf8')
 
   console.log(`[SEO] wrote ${pagePath}`)
 
-  // Verify the file we just wrote actually has the expected structure.
-  // Catches cases where Haiku returned empty / truncated content and we
-  // shipped a broken .tsx that would build-break on Vercel.
+  // Verify the English file we just wrote actually has the expected structure
   await verifyAndLog(PROJECT_ROOT, 'seo-page',
     () => Promise.resolve(verifyTsxPage(pagePath, { mustContain: [topic.h1.slice(0, 30)] })),
     { slug: topic.slug, h1: topic.h1.slice(0, 80) },
   ).catch(() => {})
+
+  // ── Translate + write localised versions (es/de/fr) ──
+  // One Haiku call per language (~$0.005 each). Writes to
+  // app/{lang}/topics/{slug}/page.tsx with hreflang + canonical set.
+  // Falls back to skip-language-silently on any failure — English
+  // page is the source of truth.
+  if (process.env.DISABLE_SEO_TRANSLATIONS !== 'true') {
+    for (const lang of TARGET_LANGS) {
+      try {
+        const translated = await translateContent(anthropic, content, lang.code)
+        if (!translated) { console.log(`[SEO] ${lang.code}: skipped (translation failed)`); continue }
+
+        // Construct a "translated topic" — slug stays identical, H1 swaps to
+        // the translated metaTitle for the <h1> + verifier.
+        const localTopic = { ...topic, h1: translated.metaTitle.replace(/^["']|["']$/g, '').slice(0, 120) }
+
+        const localDir = join(PROJECT_ROOT, 'app', lang.code, 'topics', topic.slug)
+        if (!existsSync(localDir)) mkdirSync(localDir, { recursive: true })
+        const localPath = join(localDir, 'page.tsx')
+        writeFileSync(localPath, renderPage(localTopic, translated, lang.code), 'utf8')
+        console.log(`[SEO] wrote ${lang.code}: ${localPath}`)
+
+        await verifyAndLog(PROJECT_ROOT, 'seo-page',
+          () => Promise.resolve(verifyTsxPage(localPath)),
+          { slug: topic.slug, lang: lang.code },
+        ).catch(() => {})
+      } catch (e) {
+        console.log(`[SEO] ${lang.code}: translation error: ${e.message?.slice(0, 80)}`)
+      }
+    }
+  }
 
   return { topic, path: pagePath }
 }

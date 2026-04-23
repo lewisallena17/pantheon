@@ -165,6 +165,7 @@ function updateAgentMemory(poolName, lesson) {
 // writers target the same file with compatible shape. Local aliases
 // kept so existing call sites don't change.
 import { loadShared, publishShared } from './lib-shared-memory.mjs'
+import { generateTaskConversation } from './lib-conversation.mjs'
 
 const loadSharedMemory  = () => loadShared(AGENT_MEMORY_DIR)
 const addSharedLesson   = (lesson) => publishShared(AGENT_MEMORY_DIR, lesson)
@@ -1243,6 +1244,25 @@ async function runAgent(todo) {
 
   await updateTask(todo.id, 'in_progress', agentName)
   await addComment(todo.id, agentName, 'Agent started — reading codebase...')
+
+  // ── Pre-task conversation — God + specialist exchange a few lines BEFORE
+  // execution. Stored on todo.metadata.conversation; dashboard renders it as
+  // a live chat bubble thread. Fire-and-forget: if generation fails we still
+  // run the task. Skipped for retry attempts to avoid duplicate conversations.
+  generateTaskConversation({
+    anthropic,
+    taskTitle:     todo.title,
+    poolName,
+    recentLessons: loadAgentMemory(poolName)?.lessons ?? [],
+  }).then(async (conversation) => {
+    if (!conversation || !conversation.length) return
+    try {
+      const { data: cur } = await supabase.from('todos').select('metadata').eq('id', todo.id).single()
+      const meta = { ...(cur?.metadata ?? {}), conversation }
+      await supabase.from('todos').update({ metadata: meta }).eq('id', todo.id)
+      console.log(`[${agentName}] conversation: ${conversation.length} turns stored`)
+    } catch {}
+  }).catch(() => {})
 
   try {
     console.log(`[${agentName}] Starting: "${todo.title}"`)

@@ -62,6 +62,16 @@
         "h1": "Building an Autonomous SEO Landing Page Farm"
       },
       "bytes": 10894
+    },
+    {
+      "at": "2026-04-23T18:00:01.238Z",
+      "kind": "seo-page",
+      "ok": true,
+      "context": {
+        "slug": "how-to-build-autonomous-ai-agents-claude",
+        "h1": "How to Build Autonomous AI Agents with Claude"
+      },
+      "bytes": 10601
     }
   ]
 }

@@ -146,6 +146,12 @@ main {
   100% { transform: translateX(0)     scale(1);    opacity: 1; }
 }
 
+/* Chat bubble pop-in for Agent Dialogue */
+@keyframes bubble-in {
+  0%   { transform: translateY(6px) scale(0.94); opacity: 0; }
+  100% { transform: translateY(0)    scale(1);    opacity: 1; }
+}
+
 /* Jarvis voice-orb morph */
 @keyframes orb-morph {
   0%, 100% { transform: scale(1)    translate(0,   0);   border-radius: 50%; }

@@ -14,20 +14,43 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${base}/topics`,    lastModified: now, priority: 0.9, changeFrequency: 'daily' as const },
   ]
 
-  // Enumerate /topics/<slug>
+  // Enumerate /topics/<slug> (English) + /{lang}/topics/<slug> (translations)
   const topicsDir = join(process.cwd(), 'app', 'topics')
   const topicPages: MetadataRoute.Sitemap = []
   if (existsSync(topicsDir)) {
     const slugs = readdirSync(topicsDir, { withFileTypes: true })
       .filter(d => d.isDirectory())
       .map(d => d.name)
+
     for (const slug of slugs) {
+      // English canonical — include hreflang alternates pointing to
+      // localised variants when they exist on disk.
+      const alternateLangs: Record<string, string> = {}
+      for (const lang of ['es', 'de', 'fr']) {
+        const localPath = join(process.cwd(), 'app', lang, 'topics', slug, 'page.tsx')
+        if (existsSync(localPath)) alternateLangs[lang] = `${base}/${lang}/topics/${slug}`
+      }
+
       topicPages.push({
         url:            `${base}/topics/${slug}`,
         lastModified:   now,
         priority:       0.8,
         changeFrequency: 'weekly',
+        ...(Object.keys(alternateLangs).length > 0
+          ? { alternates: { languages: { ...alternateLangs, en: `${base}/topics/${slug}`, 'x-default': `${base}/topics/${slug}` } } }
+          : {}),
       })
+
+      // Also list the localised pages as their own sitemap entries
+      for (const [lang, url] of Object.entries(alternateLangs)) {
+        void lang
+        topicPages.push({
+          url,
+          lastModified:   now,
+          priority:       0.7,
+          changeFrequency: 'weekly',
+        })
+      }
     }
   }
 

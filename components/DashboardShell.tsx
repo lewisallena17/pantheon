@@ -58,6 +58,7 @@ import PanicButton from './PanicButton'
 import KeyboardShortcuts from './KeyboardShortcuts'
 import RevenueChart from './RevenueChart'
 import VerificationPanel from './VerificationPanel'
+import AgentConversations from './AgentConversations'
 
 interface Props {
   initialTodos: Todo[]
@@ -263,6 +264,8 @@ export default function DashboardShell({ initialTodos }: Props) {
           </div>
 
           <AgentRPGStats todos={todos} />
+
+          <AgentConversations />
 
           <TrustScores todos={todos} />
 
