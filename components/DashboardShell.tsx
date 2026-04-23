@@ -57,6 +57,7 @@ import LastDayDigest from './LastDayDigest'
 import PanicButton from './PanicButton'
 import KeyboardShortcuts from './KeyboardShortcuts'
 import RevenueChart from './RevenueChart'
+import VerificationPanel from './VerificationPanel'
 
 interface Props {
   initialTodos: Todo[]
@@ -330,6 +331,8 @@ export default function DashboardShell({ initialTodos }: Props) {
           <Collapsible id="code-devlive" title="Dev → Live Pipeline" defaultOpen={false}>
             <DevToLiveStats />
           </Collapsible>
+
+          <VerificationPanel />
         </div>
       )}
     </div>

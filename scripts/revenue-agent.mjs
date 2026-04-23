@@ -20,6 +20,7 @@ import { createClient } from '@supabase/supabase-js'
 import { readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
+import { verifyUrl, verifyAndLog } from './lib-verify.mjs'
 
 const __dirname   = dirname(fileURLToPath(import.meta.url))
 const ROOT        = join(__dirname, '..')
@@ -276,6 +277,17 @@ async function postToDevTo(title, body, tags) {
 
     const data = await res.json()
     console.log(`[REVENUE] ✅ Published: ${data.url}`)
+
+    // Non-blocking verification: 15s later, fetch the URL and confirm the
+    // article actually renders with the expected title. Catches the
+    // "dev.to returned 201 but the article is a 404" silent failure case.
+    setTimeout(() => {
+      verifyAndLog(ROOT, 'devto-post',
+        () => verifyUrl(data.url, { mustContain: [title.slice(0, 40)], minBytes: 2000 }),
+        { kind: 'devto-post', url: data.url, id: data.id, title: title.slice(0, 80) },
+      ).catch(() => {})
+    }, 15_000)
+
     return { url: data.url, id: data.id, slug: data.slug }
   } catch (e) {
     console.error(`[REVENUE] dev.to error: ${e.message}`)

@@ -22,6 +22,7 @@ import { execSync } from 'node:child_process'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import Anthropic from '@anthropic-ai/sdk'
+import { verifyTsxPage, verifyAndLog } from './lib-verify.mjs'
 
 const __dirname    = dirname(fileURLToPath(import.meta.url))
 const PROJECT_ROOT = resolve(__dirname, '..')
@@ -300,6 +301,15 @@ async function generateOne() {
   writeFileSync(pagePath, renderPage(topic, content), 'utf8')
 
   console.log(`[SEO] wrote ${pagePath}`)
+
+  // Verify the file we just wrote actually has the expected structure.
+  // Catches cases where Haiku returned empty / truncated content and we
+  // shipped a broken .tsx that would build-break on Vercel.
+  await verifyAndLog(PROJECT_ROOT, 'seo-page',
+    () => Promise.resolve(verifyTsxPage(pagePath, { mustContain: [topic.h1.slice(0, 30)] })),
+    { slug: topic.slug, h1: topic.h1.slice(0, 80) },
+  ).catch(() => {})
+
   return { topic, path: pagePath }
 }
 

@@ -29,6 +29,7 @@ import { runListingOptimizer } from './god/listing-optimizer.mjs'
 import { askLLM, isInFallback } from './lib-llm.mjs'
 import { detectEmergentGoals } from './god/goal-emergence.mjs'
 import { updateUserModel, readUserModelSummary } from './god/user-modeler.mjs'
+import { verifyGitCommit, verifyAndLog } from './lib-verify.mjs'
 
 const __dirname   = dirname(fileURLToPath(import.meta.url))
 const PROJECT_ROOT = resolve(__dirname, '..')
@@ -227,6 +228,12 @@ async function autoCommit({ cycle, source, summary, files }) {
 
   // Record pending verification — watchdog checks success rate 20 tasks later
   recordPendingCommit({ sha, cycle, source, summary: safeSummary, at: new Date().toISOString() })
+
+  // Verify the commit actually exists in git log (catches silent cwd/index issues)
+  verifyAndLog(PROJECT_ROOT, 'git-commit',
+    () => Promise.resolve(verifyGitCommit(sha, PROJECT_ROOT)),
+    { sha, cycle, source, summary: safeSummary.slice(0, 60) },
+  ).catch(() => {})
 
   // ── Verification — revert if the edit broke the build ────────────────────
   if (process.env.GOD_VERIFY !== 'false') {
