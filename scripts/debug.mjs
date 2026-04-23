@@ -39,29 +39,11 @@ const TOKEN_BUDGET_LOG_PATH = join(DEBUG_DIR, 'token-budget.log')
 const WORD_COUNT_LOG_PATH = join(DEBUG_DIR, 'word-count.log')
 
 /**
- * Token budget log entry
+ * Token budget log entry shape (for reference only — .mjs is plain JS, no interfaces):
+ *   { timestamp, request_id, route?, total_budget?, tokens_remaining?,
+ *     tokens_consumed?, consumption_rate?, model_name?, stop_reason?,
+ *     input_tokens?, output_tokens?, metadata? }
  */
-interface TokenBudgetLogEntry {
-  timestamp: string
-  request_id: string
-  route?: string
-  
-  // Budget state
-  total_budget?: number        // Total token budget for request
-  tokens_remaining?: number    // Tokens available before response generation
-  tokens_consumed?: number     // Tokens already used before response
-  consumption_rate?: number    // Tokens per second (if calculable)
-  
-  // Model info
-  model_name?: string
-  stop_reason?: string
-  
-  // Context metrics
-  input_tokens?: number        // Tokens in prompt/context
-  output_tokens?: number       // Tokens generated in response
-  
-  metadata?: Record<string, unknown>
-}
 
 /**
  * Ensure debug directory exists
@@ -153,17 +135,10 @@ export async function logTokenBudgetPercentage(
 }
 
 /**
- * Word count log entry
+ * Word count log entry shape (for reference — .mjs is plain JS):
+ *   { timestamp, request_id, route?, response_text, word_count,
+ *     character_count, metadata? }
  */
-interface WordCountLogEntry {
-  timestamp: string
-  request_id: string
-  route?: string
-  response_text: string
-  word_count: number
-  character_count: number
-  metadata?: Record<string, unknown>
-}
 
 /**
  * Count words in a response text.
