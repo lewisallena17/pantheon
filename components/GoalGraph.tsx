@@ -58,26 +58,34 @@ export default function GoalGraph({ todos }: Props) {
     })
   }, [wisdom, todos])
 
-  // Simple circular layout — active goals at top, completed clustered below
+  // Layout: active on top row, retired on bottom row. Collapses to a single
+  // centred row when one group is empty so there's no huge blank band.
   const positioned = useMemo(() => {
     const active    = nodes.filter(n => n.status === 'active')
     const completed = nodes.filter(n => n.status !== 'active')
-    const W = 600, H = 320, cx = W / 2
+    const W = 600
+    const ROW_H  = 110                                 // vertical space one row wants
+    const MARGIN = 40
+    const haveActive    = active.length > 0
+    const haveCompleted = completed.length > 0
+    const H = MARGIN * 2 + (haveActive ? ROW_H : 0) + (haveCompleted ? ROW_H : 0)
 
-    const aY = 70
-    const activeSpacing = active.length > 1 ? (W - 160) / (active.length - 1) : 0
-    for (const [i, n] of active.entries()) {
-      n.x = 80 + i * activeSpacing
-      n.y = aY
+    function placeRow(xs: typeof active, y: number) {
+      const n = xs.length
+      if (n === 0) return
+      const usable  = W - 160
+      const spacing = n > 1 ? usable / (n - 1) : 0
+      const startX  = n > 1 ? 80 : W / 2
+      for (const [i, node] of xs.entries()) {
+        node.x = startX + i * spacing
+        node.y = y
+      }
     }
 
-    const cY = 230
-    const completedSpacing = completed.length > 1 ? (W - 160) / (completed.length - 1) : 0
-    for (const [i, n] of completed.entries()) {
-      n.x = 80 + i * completedSpacing
-      n.y = cY
-    }
-    void cx
+    let cursor = MARGIN
+    if (haveActive)    { placeRow(active,    cursor + ROW_H / 2); cursor += ROW_H }
+    if (haveCompleted) { placeRow(completed, cursor + ROW_H / 2) }
+
     return { active, completed, W, H }
   }, [nodes])
 
@@ -101,7 +109,7 @@ export default function GoalGraph({ todos }: Props) {
         </span>
       </div>
       <div className="p-3">
-        <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ maxHeight: 320 }}>
+        <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ maxHeight: H }}>
           {/* Connections — each active goal linked to every retired predecessor */}
           {active.flatMap(a =>
             completed.map(c => (
