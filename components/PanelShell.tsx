@@ -73,16 +73,19 @@ export default function PanelShell({
     }
   }
 
+  // Toggle target is the title-side button; chipRight sits outside it as a
+  // sibling so callers can pass interactive controls (other <button>s) in
+  // chipRight without nesting buttons (which causes a hydration error).
   return (
     <div className={`rounded border ${t.border} bg-black/40 overflow-hidden transition-colors`}>
-      <button
-        type="button"
-        onClick={toggle}
-        disabled={!collapsible}
-        aria-expanded={open}
-        className={`w-full flex items-center justify-between gap-3 px-4 py-2 border-b ${t.border} ${t.headerBg} ${collapsible ? 'cursor-pointer hover:bg-black/70' : 'cursor-default'}`}
-      >
-        <div className="flex items-center gap-2.5 min-w-0">
+      <div className={`flex items-center justify-between gap-3 px-4 py-2 border-b ${t.border} ${t.headerBg}`}>
+        <button
+          type="button"
+          onClick={toggle}
+          disabled={!collapsible}
+          aria-expanded={open}
+          className={`flex items-center gap-2.5 min-w-0 flex-1 text-left ${collapsible ? 'cursor-pointer hover:opacity-90' : 'cursor-default'}`}
+        >
           {icon && <span className={`flex-shrink-0 ${t.accent}`}>{icon}</span>}
           <span className={`text-xs font-mono tracking-[0.2em] ${t.accent} uppercase truncate`}>{title}</span>
           {chipLeft && <span className="flex-shrink-0">{chipLeft}</span>}
@@ -92,14 +95,21 @@ export default function PanelShell({
               new
             </span>
           )}
-        </div>
+        </button>
         <div className="flex items-center gap-2 flex-shrink-0">
           {chipRight}
           {collapsible && (
-            <span className={`text-[10px] font-mono ${t.accent} opacity-60`}>{open ? '▴' : '▾'}</span>
+            <button
+              type="button"
+              onClick={toggle}
+              aria-label={open ? 'Collapse' : 'Expand'}
+              className={`text-[10px] font-mono ${t.accent} opacity-60 hover:opacity-100`}
+            >
+              {open ? '▴' : '▾'}
+            </button>
           )}
         </div>
-      </button>
+      </div>
 
       {open && <div>{children}</div>}
     </div>
