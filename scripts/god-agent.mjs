@@ -752,27 +752,32 @@ async function updateRoadmap(todos, schema, wisdom) {
   if (autoRetired) console.log(`[GOD-ROADMAP] auto-retired ${autoRetired} stale goals`)
 
   const completedTitles = todos.filter(t => t.status === 'completed').map(t => t.title)
-  const existingGoals   = wisdom.roadmap.goals.map(g => {
+  // Only show ACTIVE goals to Haiku — listing completed ones invites it to
+  // echo them back and we end up frozen with 0 active goals (was the case
+  // for ~242 cycles before this fix).
+  const activeOnly = (wisdom.roadmap.goals ?? []).filter(g => g.status === 'active')
+  const existingGoals = activeOnly.map(g => {
     const age = g.activatedCycle !== undefined ? wisdom.cycles - g.activatedCycle : '?'
     return `[${g.status}, ${age} cycles active] ${g.title}`
-  }).join('\n') || 'none'
+  }).join('\n') || 'none — propose a fresh roadmap'
+  const noActive = activeOnly.length === 0
 
   const prompt = `You are GOD planning the strategic direction of a Next.js 14 + Supabase agent dashboard.
 
 EXISTING DB TABLES: ${schema.tableNames}
 COMPLETED WORK (last 15): ${completedTitles.slice(0, 15).join(', ') || 'none'}
-CURRENT GOALS:
+CURRENT ACTIVE GOALS:
 ${existingGoals}
 
 CURRENT CYCLE: ${wisdom.cycles}
 
 RULES:
-- If an active goal has been running ≥10 cycles, strongly consider marking it "completed" or "abandoned" and proposing a fresh one — stale goals produce stale task proposals.
-- Preserve at most ONE goal older than 10 cycles.
-- Always include at least one goal the council hasn't seen before.
-- Define 2-4 high-level strategic goals for the next 10-20 cycles.
+${noActive
+  ? '- THERE ARE NO ACTIVE GOALS. Propose 2-4 NEW strategic goals for the next 10-20 cycles. Do NOT reference past goals.'
+  : '- If an active goal has been running ≥10 cycles, strongly consider marking it "completed" or "abandoned" and proposing a fresh one — stale goals produce stale task proposals.\n- Preserve at most ONE goal older than 10 cycles.\n- Always include at least one goal the council hasn\'t seen before.\n- Define 2-4 high-level strategic goals for the next 10-20 cycles.'}
 - Each goal should be achievable through 3-6 sequential tasks.
 - Goals must only reference tables/features that exist or can be built incrementally.
+- Every goal you return MUST have status:"active" — completed goals are tracked separately.
 
 Reply ONLY with JSON array:
 [{"id":"g1","title":"goal title","priority":"high","status":"active","tasksCreated":0}]`
@@ -823,16 +828,31 @@ Reply ONLY with JSON array:
         console.log(`[GOD-EMERGENT] detection failed: ${e.message?.slice(0, 80)}`)
       }
 
+      // Move any "completed" entries Haiku still echoed into completedGoals
+      // archive — keep `goals` exclusively for things actively in flight.
+      const stillActive = [...merged, ...emergentAdds].filter(g => g.status === 'active')
+      const justFinished = [...merged, ...emergentAdds].filter(g => g.status !== 'active')
+      const archive = [
+        ...(wisdom.roadmap.completedGoals ?? []),
+        ...justFinished.map(g => ({ ...g, retiredCycle: wisdom.cycles })),
+      ].slice(-50)
+
+      if (stillActive.length === 0) {
+        console.log(`[GOD-ROADMAP] cycle ${wisdom.cycles}: Haiku returned 0 active goals — keeping previous roadmap to avoid stall`)
+      }
+
       return {
         ...wisdom,
         roadmap: {
-          goals: [...merged, ...emergentAdds].slice(0, 6),
-          completedGoals: wisdom.roadmap.completedGoals,
+          goals:          stillActive.length > 0 ? stillActive.slice(0, 6) : wisdom.roadmap.goals,
+          completedGoals: archive,
         },
         lastRoadmapUpdate: new Date().toISOString(),
       }
     }
-  } catch {}
+  } catch (e) {
+    console.log(`[GOD-ROADMAP] cycle ${wisdom.cycles}: update failed — ${e.message?.slice(0, 120)}`)
+  }
   return wisdom
 }
 

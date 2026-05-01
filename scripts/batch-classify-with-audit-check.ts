@@ -168,7 +168,7 @@ async function captureErrorMetricsSnapshot(
     throw error;
   }
 
-  const failures = data || [];
+  const failures = (data || []) as Array<{ execution_status?: string; error_code?: string }>;
   const total = failures.length;
 
   // Count by severity (using execution_status or error_code as proxy)
