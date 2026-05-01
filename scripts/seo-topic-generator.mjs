@@ -367,6 +367,19 @@ for (let i = 0; i < Math.max(1, Math.min(5, batch)); i++) {
   if (i < batch - 1) await new Promise(r => setTimeout(r, 2000))
 }
 
+// Ping IndexNow for the freshly-generated pages so Bing/Google find them in
+// hours instead of days. Best-effort; failures don't bubble up.
+if (generated.length > 0) {
+  try {
+    const { pingIndexNow } = await import('./indexnow.mjs')
+    const base = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://task-dashboard-sigma-three.vercel.app'
+    const urls = generated.map(g => `${base}/topics/${g.topic.slug}`)
+    await pingIndexNow(urls)
+  } catch (e) {
+    console.log('[SEO-GEN] indexnow ping skipped:', e.message?.slice(0, 80))
+  }
+}
+
 if (generated.length === 0) {
   console.log('[SEO] nothing generated')
   process.exit(0)

@@ -72,5 +72,14 @@ module.exports = {
       max_restarts: 10,
       env: { NODE_ENV: 'production' },
     },
+    {
+      name: 'seo-content-loop',
+      script: 'scripts/seo-content-loop.mjs',
+      watch: false,
+      autorestart: true,
+      restart_delay: 60000,
+      max_restarts: 10,
+      env: { NODE_ENV: 'production' },
+    },
   ],
 }
