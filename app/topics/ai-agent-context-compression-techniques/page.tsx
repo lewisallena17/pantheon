@@ -1,5 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import DisplayAd from '@/components/DisplayAd'
+import AmazonGeoSwap from '@/components/AmazonGeoSwap'
 
 export const metadata: Metadata = {
   title:       'Context Compression for Long-Running AI Agents',
@@ -16,6 +18,7 @@ export const metadata: Metadata = {
 export default function Topic() {
   return (
     <main className="min-h-screen bg-slate-950 px-4 py-10">
+      <AmazonGeoSwap />
       <article className="max-w-3xl mx-auto">
         <nav className="text-[10px] font-mono text-slate-500 mb-6">
           <Link href="/" className="hover:text-cyan-400">◈ pantheon</Link>
@@ -27,12 +30,18 @@ export default function Topic() {
 
         <p className="text-slate-300 leading-relaxed mb-8 text-lg">{`Long-running AI agents hit a hard wall: every message adds context, token costs spiral, and response latency becomes unbearable—but strategic context compression keeps your Claude agents fast and cheap.`}</p>
 
+
+        {/* Above-fold display ad — placeholder until NEXT_PUBLIC_ADSENSE_CLIENT_ID is set */}
+        <DisplayAd slot="topic-top" format="auto" className="my-6" />
         <section className="mb-6">
           <h2 className="text-xl font-bold text-slate-100 mt-8 mb-3">{"Why Context Grows Into a Problem"}</h2>
           <p className="text-slate-300 leading-relaxed mb-3">{`AI agents that run for hours, days, or across multiple conversations accumulate memory. Each new interaction includes all previous context: system prompts, conversation history, retrieved documents, tool outputs. With Claude, this means tokens multiply fast.`}</p>
           <p className="text-slate-300 leading-relaxed mb-3">{`At \$3 per 1M input tokens, a 100k-token conversation costs \$0.30. Scale to 10 concurrent agents running daily, and you're burning budget on redundant context. Worse: larger context windows increase latency by 200-400ms, breaking the responsiveness users expect.`}</p>
 
         </section>
+
+        <DisplayAd slot="topic-mid" format="auto" className="my-8" />
+
         <section className="mb-6">
           <h2 className="text-xl font-bold text-slate-100 mt-8 mb-3">{"Selective History Retention"}</h2>
           <p className="text-slate-300 leading-relaxed mb-3">{`Not all history matters equally. Recent exchanges inform the agent's current task; old interactions become noise. Implement a sliding window: keep only the last N turns, or retain messages within the last M hours.`}</p>

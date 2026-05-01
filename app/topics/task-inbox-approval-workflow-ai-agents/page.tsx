@@ -1,5 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import DisplayAd from '@/components/DisplayAd'
+import AmazonGeoSwap from '@/components/AmazonGeoSwap'
 
 export const metadata: Metadata = {
   title:       'Task Inbox Approval Workflow for AI Agents',
@@ -16,6 +18,7 @@ export const metadata: Metadata = {
 export default function Topic() {
   return (
     <main className="min-h-screen bg-slate-950 px-4 py-10">
+      <AmazonGeoSwap />
       <article className="max-w-3xl mx-auto">
         <nav className="text-[10px] font-mono text-slate-500 mb-6">
           <Link href="/" className="hover:text-cyan-400">◈ pantheon</Link>
@@ -27,12 +30,18 @@ export default function Topic() {
 
         <p className="text-slate-300 leading-relaxed mb-8 text-lg">{`Stop letting your AI agents run unsupervised—implement a task inbox approval workflow that keeps critical decisions under human control while maintaining automation speed.`}</p>
 
+
+        {/* Above-fold display ad — placeholder until NEXT_PUBLIC_ADSENSE_CLIENT_ID is set */}
+        <DisplayAd slot="topic-top" format="auto" className="my-6" />
         <section className="mb-6">
           <h2 className="text-xl font-bold text-slate-100 mt-8 mb-3">{"Why Your AI Agents Need Approval Workflows"}</h2>
           <p className="text-slate-300 leading-relaxed mb-3">{`Claude agents can execute complex tasks autonomously, but some decisions shouldn't bypass human judgment. Approval workflows let you define which agent actions require sign-off before execution, catching edge cases and preventing costly mistakes without killing productivity.`}</p>
           <p className="text-slate-300 leading-relaxed mb-3">{`A task inbox system sits between agent decision-making and action execution. The agent identifies what needs doing, submits it to your approval interface, and waits for a human to review context and approve (or reject) before proceeding. This pattern works for payment processing, customer communications, data deletions, or any high-stakes operation.`}</p>
 
         </section>
+
+        <DisplayAd slot="topic-mid" format="auto" className="my-8" />
+
         <section className="mb-6">
           <h2 className="text-xl font-bold text-slate-100 mt-8 mb-3">{"Architecture: Agent → Inbox → Action"}</h2>
           <p className="text-slate-300 leading-relaxed mb-3">{`Your workflow splits into three layers. First, your Claude agent runs tool calls and detects tasks requiring approval. Second, those tasks land in a Supabase database table with full context—what the agent wants to do, why, and what data it's operating on. Third, your Next.js dashboard queries that inbox, displays pending tasks with rich context, and provides approve/reject buttons that trigger the next agent step.`}</p>

@@ -1,5 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import DisplayAd from '@/components/DisplayAd'
+import AmazonGeoSwap from '@/components/AmazonGeoSwap'
 
 export const metadata: Metadata = {
   title:       'Real Cost of Running Autonomous AI Agents 24/7',
@@ -16,6 +18,7 @@ export const metadata: Metadata = {
 export default function Topic() {
   return (
     <main className="min-h-screen bg-slate-950 px-4 py-10">
+      <AmazonGeoSwap />
       <article className="max-w-3xl mx-auto">
         <nav className="text-[10px] font-mono text-slate-500 mb-6">
           <Link href="/" className="hover:text-cyan-400">◈ pantheon</Link>
@@ -27,12 +30,18 @@ export default function Topic() {
 
         <p className="text-slate-300 leading-relaxed mb-8 text-lg">{`Before you scale your Claude-powered agent to run continuously, here are the exact cost levers that will determine whether your monthly bill is \$40 or \$4,000.`}</p>
 
+
+        {/* Above-fold display ad — placeholder until NEXT_PUBLIC_ADSENSE_CLIENT_ID is set */}
+        <DisplayAd slot="topic-top" format="auto" className="my-6" />
         <section className="mb-6">
           <h2 className="text-xl font-bold text-slate-100 mt-8 mb-3">{"Token Costs Are Not Linear — They Compound"}</h2>
           <p className="text-slate-300 leading-relaxed mb-3">{`Claude's context window is generous, but autonomous agents stuff it fast. A single agent loop that reads tool outputs, appends results, and re-prompts can balloon from a 2K-token request to a 40K-token request within five turns. At claude-3-5-sonnet pricing (\$3 input / \$15 output per million tokens), a naive agent running 100 loops per hour costs roughly \$180/day before you account for retries.`}</p>
           <p className="text-slate-300 leading-relaxed mb-3">{`The fix is aggressive context pruning. Summarize completed steps into a compact scratchpad and inject only the last N tool results into each prompt. This alone can cut per-loop token usage by 60–70% without losing agent coherence.`}</p>
 
         </section>
+
+        <DisplayAd slot="topic-mid" format="auto" className="my-8" />
+
         <section className="mb-6">
           <h2 className="text-xl font-bold text-slate-100 mt-8 mb-3">{"Infra Costs: Vercel Functions vs. Long-Running Workers"}</h2>
           <p className="text-slate-300 leading-relaxed mb-3">{`Next.js on Vercel is great for request-response workflows, but autonomous agents need persistent execution. A single 10-minute agent run blows past Vercel's default 60-second function limit and, on Pro, costs \$0.40 per GB-second. For continuous 24/7 agents, a \$6/month Fly.io worker or a Supabase Edge Function with Deno's event loop is orders of magnitude cheaper.`}</p>

@@ -1,5 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import DisplayAd from '@/components/DisplayAd'
+import AmazonGeoSwap from '@/components/AmazonGeoSwap'
 
 export const metadata: Metadata = {
   title:       'Claude Opus vs Sonnet vs Haiku: Model Routing Guide',
@@ -16,6 +18,7 @@ export const metadata: Metadata = {
 export default function Topic() {
   return (
     <main className="min-h-screen bg-slate-950 px-4 py-10">
+      <AmazonGeoSwap />
       <article className="max-w-3xl mx-auto">
         <nav className="text-[10px] font-mono text-slate-500 mb-6">
           <Link href="/" className="hover:text-cyan-400">◈ pantheon</Link>
@@ -27,12 +30,18 @@ export default function Topic() {
 
         <p className="text-slate-300 leading-relaxed mb-8 text-lg">{`Route Claude requests to the right model—Opus for reasoning, Sonnet for balance, Haiku for speed—and cut your API costs by 60% while keeping response quality where it matters.`}</p>
 
+
+        {/* Above-fold display ad — placeholder until NEXT_PUBLIC_ADSENSE_CLIENT_ID is set */}
+        <DisplayAd slot="topic-top" format="auto" className="my-6" />
         <section className="mb-6">
           <h2 className="text-xl font-bold text-slate-100 mt-8 mb-3">{"Why Model Routing Matters for AI Agents"}</h2>
           <p className="text-slate-300 leading-relaxed mb-3">{`Not every Claude request needs Opus. Simple classifications, formatting, and retrieval tasks run fine on Haiku at 1/10 the cost. Complex reasoning, code generation, and multi-step planning benefit from Opus's reasoning depth. Smart routing means you pay only for the capability you actually need.`}</p>
           <p className="text-slate-300 leading-relaxed mb-3">{`For indie developers and founders, this isn't premature optimization—it's the difference between a \$500/month API bill and \$50/month at scale. Agents that make dozens of API calls per user interaction need intentional model selection from the start.`}</p>
 
         </section>
+
+        <DisplayAd slot="topic-mid" format="auto" className="my-8" />
+
         <section className="mb-6">
           <h2 className="text-xl font-bold text-slate-100 mt-8 mb-3">{"Claude Opus: Deep Reasoning and Complex Planning"}</h2>
           <p className="text-slate-300 leading-relaxed mb-3">{`Opus is your heavyweight. It excels at multi-step reasoning, analyzing ambiguous requirements, debugging complex code, and solving novel problems. Use it for tasks that genuinely require step-by-step logic.`}</p>

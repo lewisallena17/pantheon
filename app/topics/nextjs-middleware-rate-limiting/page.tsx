@@ -1,5 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import DisplayAd from '@/components/DisplayAd'
+import AmazonGeoSwap from '@/components/AmazonGeoSwap'
 
 export const metadata: Metadata = {
   title:       'Rate Limiting API Routes in Next.js Middleware',
@@ -16,6 +18,7 @@ export const metadata: Metadata = {
 export default function Topic() {
   return (
     <main className="min-h-screen bg-slate-950 px-4 py-10">
+      <AmazonGeoSwap />
       <article className="max-w-3xl mx-auto">
         <nav className="text-[10px] font-mono text-slate-500 mb-6">
           <Link href="/" className="hover:text-cyan-400">◈ pantheon</Link>
@@ -27,12 +30,18 @@ export default function Topic() {
 
         <p className="text-slate-300 leading-relaxed mb-8 text-lg">{`Rate limiting your Next.js API routes in middleware prevents abuse, protects your Claude API quota, and keeps your indie app running predictably under load—without burning through infrastructure costs or getting blocked by third-party services.`}</p>
 
+
+        {/* Above-fold display ad — placeholder until NEXT_PUBLIC_ADSENSE_CLIENT_ID is set */}
+        <DisplayAd slot="topic-top" format="auto" className="my-6" />
         <section className="mb-6">
           <h2 className="text-xl font-bold text-slate-100 mt-8 mb-3">{"Why Middleware Rate Limiting Matters for AI Systems"}</h2>
           <p className="text-slate-300 leading-relaxed mb-3">{`When you're building AI agent systems with Claude, every API call has a cost. A single malicious user or buggy client can exhaust your rate limits in minutes, blocking legitimate requests. Middleware-based rate limiting catches abuse before it reaches your business logic.`}</p>
           <p className="text-slate-300 leading-relaxed mb-3">{`For indie founders, this is existential: your Claude API key is a shared resource. One runaway agent or unintended loop can trigger rate limit errors across your entire system. Enforcing limits at the middleware layer is your first line of defense.`}</p>
 
         </section>
+
+        <DisplayAd slot="topic-mid" format="auto" className="my-8" />
+
         <section className="mb-6">
           <h2 className="text-xl font-bold text-slate-100 mt-8 mb-3">{"Token-Bucket Algorithm in Next.js Middleware"}</h2>
           <p className="text-slate-300 leading-relaxed mb-3">{`The token-bucket algorithm is the industry standard for rate limiting. Each user gets a bucket that refills at a fixed rate. Requests consume tokens; when the bucket is empty, requests are rejected. It handles bursts gracefully while enforcing long-term limits.`}</p>

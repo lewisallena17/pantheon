@@ -1,5 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import DisplayAd from '@/components/DisplayAd'
+import AmazonGeoSwap from '@/components/AmazonGeoSwap'
 
 export const metadata: Metadata = {
   title:       'AI Agent Monitoring: Alert When Your Claude Agent Breaks',
@@ -16,6 +18,7 @@ export const metadata: Metadata = {
 export default function Topic() {
   return (
     <main className="min-h-screen bg-slate-950 px-4 py-10">
+      <AmazonGeoSwap />
       <article className="max-w-3xl mx-auto">
         <nav className="text-[10px] font-mono text-slate-500 mb-6">
           <Link href="/" className="hover:text-cyan-400">◈ pantheon</Link>
@@ -27,12 +30,18 @@ export default function Topic() {
 
         <p className="text-slate-300 leading-relaxed mb-8 text-lg">{`Your AI agent is running smoothly until 3 AM when it silently fails on an edge case, and you don't find out until your users complain—learn the monitoring patterns that catch failures instantly instead.`}</p>
 
+
+        {/* Above-fold display ad — placeholder until NEXT_PUBLIC_ADSENSE_CLIENT_ID is set */}
+        <DisplayAd slot="topic-top" format="auto" className="my-6" />
         <section className="mb-6">
           <h2 className="text-xl font-bold text-slate-100 mt-8 mb-3">{"Why Silent Failures Destroy AI Agent Reliability"}</h2>
           <p className="text-slate-300 leading-relaxed mb-3">{`AI agents built with Claude often handle variable inputs and make decision trees that are hard to predict. When they fail, they fail quietly. An agent might hit rate limits, receive malformed tool responses, or encounter logic branches you didn't anticipate during testing. Without proactive monitoring, you're flying blind.`}</p>
           <p className="text-slate-300 leading-relaxed mb-3">{`The cost of discovery matters: learning about failures from user reports means lost trust, wasted API calls, and hours of debugging without context. Monitoring flips this—you own the failure narrative and fix issues before they spread.`}</p>
 
         </section>
+
+        <DisplayAd slot="topic-mid" format="auto" className="my-8" />
+
         <section className="mb-6">
           <h2 className="text-xl font-bold text-slate-100 mt-8 mb-3">{"Implement Structured Error Logging in Your Agent Loop"}</h2>
           <p className="text-slate-300 leading-relaxed mb-3">{`Start by wrapping your Claude agent calls in try-catch blocks that capture not just the error, but the state: which tool failed, what was the input, what was the agent thinking. This context is gold when debugging.`}</p>

@@ -1,5 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import DisplayAd from '@/components/DisplayAd'
+import AmazonGeoSwap from '@/components/AmazonGeoSwap'
 
 export const metadata: Metadata = {
   title:       'Build an LLM API Cost Tracker Dashboard | Claude + Next.js',
@@ -16,6 +18,7 @@ export const metadata: Metadata = {
 export default function Topic() {
   return (
     <main className="min-h-screen bg-slate-950 px-4 py-10">
+      <AmazonGeoSwap />
       <article className="max-w-3xl mx-auto">
         <nav className="text-[10px] font-mono text-slate-500 mb-6">
           <Link href="/" className="hover:text-cyan-400">◈ pantheon</Link>
@@ -27,12 +30,18 @@ export default function Topic() {
 
         <p className="text-slate-300 leading-relaxed mb-8 text-lg">{`Stop guessing at your Claude API bills—build a real-time cost tracker dashboard that monitors token usage, calculates expenses per feature, and alerts you before budget overruns.`}</p>
 
+
+        {/* Above-fold display ad — placeholder until NEXT_PUBLIC_ADSENSE_CLIENT_ID is set */}
+        <DisplayAd slot="topic-top" format="auto" className="my-6" />
         <section className="mb-6">
           <h2 className="text-xl font-bold text-slate-100 mt-8 mb-3">{"Why You Need Cost Visibility Into LLM APIs"}</h2>
           <p className="text-slate-300 leading-relaxed mb-3">{`Claude API calls scale unpredictably. A single poorly-optimized agent loop can drain \$500 in hours. Most indie developers only see final charges in their Anthropic dashboard—weeks after the damage is done.`}</p>
           <p className="text-slate-300 leading-relaxed mb-3">{`A dedicated cost tracker gives you per-request visibility. You'll spot which features, users, or agent workflows are expensive. You'll catch runaway loops immediately. You'll make confident decisions about which AI features to ship versus deprecate.`}</p>
 
         </section>
+
+        <DisplayAd slot="topic-mid" format="auto" className="my-8" />
+
         <section className="mb-6">
           <h2 className="text-xl font-bold text-slate-100 mt-8 mb-3">{"Architecture: Logging Requests and Calculating Costs"}</h2>
           <p className="text-slate-300 leading-relaxed mb-3">{`Your tracker needs three layers: (1) middleware that intercepts Claude API calls and logs metadata, (2) a Supabase table storing tokens used + timestamps, (3) a Next.js dashboard querying and visualizing costs.`}</p>

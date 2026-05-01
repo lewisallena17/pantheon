@@ -1,5 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import DisplayAd from '@/components/DisplayAd'
+import AmazonGeoSwap from '@/components/AmazonGeoSwap'
 
 export const metadata: Metadata = {
   title:       'Build a Stuck-Task Watchdog for AI Agent Pools',
@@ -16,6 +18,7 @@ export const metadata: Metadata = {
 export default function Topic() {
   return (
     <main className="min-h-screen bg-slate-950 px-4 py-10">
+      <AmazonGeoSwap />
       <article className="max-w-3xl mx-auto">
         <nav className="text-[10px] font-mono text-slate-500 mb-6">
           <Link href="/" className="hover:text-cyan-400">◈ pantheon</Link>
@@ -27,12 +30,18 @@ export default function Topic() {
 
         <p className="text-slate-300 leading-relaxed mb-8 text-lg">{`When you're running a pool of AI agents processing tasks asynchronously, silent failures and stuck tasks will eventually cost you—a watchdog system that detects hangs and auto-recovers can save hours of debugging and lost revenue.`}</p>
 
+
+        {/* Above-fold display ad — placeholder until NEXT_PUBLIC_ADSENSE_CLIENT_ID is set */}
+        <DisplayAd slot="topic-top" format="auto" className="my-6" />
         <section className="mb-6">
           <h2 className="text-xl font-bold text-slate-100 mt-8 mb-3">{"Why Stuck Tasks Happen in Agent Pools"}</h2>
           <p className="text-slate-300 leading-relaxed mb-3">{`AI agent tasks can hang for several reasons: Claude API timeouts, network interruptions, infinite loops in agent logic, or database locks that block state updates. In a pool of concurrent agents, one stuck task is invisible until your monitoring gaps it.`}</p>
           <p className="text-slate-300 leading-relaxed mb-3">{`Without visibility, a task marked 'processing' never moves to 'completed' or 'failed'. Your queue stays dirty. New agents skip over it. Users never hear back. The cost compounds.`}</p>
 
         </section>
+
+        <DisplayAd slot="topic-mid" format="auto" className="my-8" />
+
         <section className="mb-6">
           <h2 className="text-xl font-bold text-slate-100 mt-8 mb-3">{"Detecting Task Hangs with Heartbeat Intervals"}</h2>
           <p className="text-slate-300 leading-relaxed mb-3">{`The simplest reliable pattern: record a \`last_activity_at\` timestamp every time an agent updates task state, and run a scheduled check every 2–5 minutes. If a task hasn't moved in longer than your timeout threshold (e.g., 10 minutes for long-running inference), flag it.`}</p>

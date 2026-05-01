@@ -1,5 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import DisplayAd from '@/components/DisplayAd'
+import AmazonGeoSwap from '@/components/AmazonGeoSwap'
 
 export const metadata: Metadata = {
   title:       'Supabase Migrations: Numbering and Ordering Guide',
@@ -16,6 +18,7 @@ export const metadata: Metadata = {
 export default function Topic() {
   return (
     <main className="min-h-screen bg-slate-950 px-4 py-10">
+      <AmazonGeoSwap />
       <article className="max-w-3xl mx-auto">
         <nav className="text-[10px] font-mono text-slate-500 mb-6">
           <Link href="/" className="hover:text-cyan-400">◈ pantheon</Link>
@@ -27,12 +30,18 @@ export default function Topic() {
 
         <p className="text-slate-300 leading-relaxed mb-8 text-lg">{`Migration ordering in Supabase determines whether your schema deploys correctly or fails silently—and getting it wrong breaks production databases when multiple developers ship changes simultaneously.`}</p>
 
+
+        {/* Above-fold display ad — placeholder until NEXT_PUBLIC_ADSENSE_CLIENT_ID is set */}
+        <DisplayAd slot="topic-top" format="auto" className="my-6" />
         <section className="mb-6">
           <h2 className="text-xl font-bold text-slate-100 mt-8 mb-3">{"Why Migration Order Matters in Team Development"}</h2>
           <p className="text-slate-300 leading-relaxed mb-3">{`Supabase migrations run sequentially by timestamp. If two developers create migrations at nearly the same time, Postgres executes them in lexicographic order by filename, not creation order. This causes foreign key violations, missing columns, and index failures when migration A depends on a table created in migration B.`}</p>
           <p className="text-slate-300 leading-relaxed mb-3">{`In AI agent systems with Claude and Next.js, your database schema often changes weekly—adding vector columns, audit tables, or embedding storage. Without strict ordering conventions, your staging and production environments diverge, and deployments fail at 2 AM.`}</p>
 
         </section>
+
+        <DisplayAd slot="topic-mid" format="auto" className="my-8" />
+
         <section className="mb-6">
           <h2 className="text-xl font-bold text-slate-100 mt-8 mb-3">{"Timestamp-Based Numbering: The Standard Approach"}</h2>
           <p className="text-slate-300 leading-relaxed mb-3">{`Supabase uses the format \`YYYYMMDDHHMMSS_descriptive_name.sql\`. The timestamp prefix ensures chronological execution. Generate this in your migration script: \`date +%Y%m%d%H%M%S\` on Unix, or use your migration tool's built-in generator.`}</p>

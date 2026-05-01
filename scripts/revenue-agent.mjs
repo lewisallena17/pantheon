@@ -43,7 +43,9 @@ const supabase  = createClient(
 const REVENUE_LOG  = join(__dirname, 'revenue-log.json')
 const DRAFTS_PATH  = join(__dirname, 'article-drafts')
 const MODELS       = { sonnet: 'claude-sonnet-4-6', haiku: 'claude-haiku-4-5-20251001' }
-const INTERVAL_MS  = 8 * 60 * 60 * 1000  // 8 hours between posts
+const INTERVAL_MS  = 24 * 60 * 60 * 1000 // 24 hours between posts (was 8h; throttled — see ADAPTIVE_BACKOFF below)
+const VIEW_SYNC_MS = 30 * 60 * 1000      // sync dev.to view counts every 30 min — cheap, no LLM
+const ADAPTIVE_BACKOFF = { lookback: 3, minViews: 30 }  // skip new posts if last N articles aggregated < minViews
 const DEV_TO_KEY   = process.env.DEV_TO_API_KEY ?? ''
 
 // Estimated earnings per 1000 views (conservative)
@@ -410,6 +412,20 @@ async function revenueCycle() {
     }
   }
 
+  // Adaptive back-off: if our last few posts collectively got fewer views
+  // than we'd need to break even on the credits, stop generating until traffic
+  // picks up. Saves us from burning $0.05+ per zero-view post.
+  const recent = syncedLog.posts.slice(-ADAPTIVE_BACKOFF.lookback)
+  if (recent.length >= ADAPTIVE_BACKOFF.lookback) {
+    const totalRecentViews = recent.reduce((s, p) => s + (p.views ?? 0), 0)
+    if (totalRecentViews < ADAPTIVE_BACKOFF.minViews) {
+      console.log(`[REVENUE] ⏸ Skipping post — last ${ADAPTIVE_BACKOFF.lookback} posts got only ${totalRecentViews} views (need ${ADAPTIVE_BACKOFF.minViews}+). Distribution channel isn't working; throwing more content at it wastes credits.`)
+      console.log('[REVENUE]    Will retry on next 24h tick. Manually share or improve SEO to break out.')
+      saveLog(syncedLog)
+      return
+    }
+  }
+
   // Get system data
   const [completions, stats] = await Promise.all([getRecentCompletions(), getSystemStats()])
   const postNumber = syncedLog.posts.length + 1
@@ -497,8 +513,35 @@ if (!DEV_TO_KEY) {
   console.log('[REVENUE]    Then add: DEV_TO_API_KEY=your_key to .env.local and restart')
 }
 
-// Run immediately on start, then every INTERVAL_MS
-revenueCycle().catch(e => console.error('[REVENUE] Cycle error:', e.message))
+// Helper: catches transient connection errors so the cycle doesn't die over a
+// flaky network blip. Real errors still surface after `tries` attempts.
+async function withRetry(fn, label, tries = 3, delayMs = 30_000) {
+  for (let i = 0; i < tries; i++) {
+    try { return await fn() } catch (e) {
+      const transient = /connection|timeout|fetch|network|ECONN|ENOTFOUND|EAI_AGAIN/i.test(e.message ?? '')
+      if (i === tries - 1 || !transient) throw e
+      console.log(`[REVENUE] ${label} retry ${i + 1}/${tries} after transient error: ${e.message?.slice(0, 80)}`)
+      await new Promise(r => setTimeout(r, delayMs * (i + 1)))
+    }
+  }
+}
+
+async function viewSyncTick() {
+  try {
+    const log = loadLog()
+    const synced = await syncViewCounts(log)
+    saveLog(synced)
+    console.log(`[REVENUE-SYNC] ${synced.posts.length} posts · ${synced.totalEstimatedViews} views · $${(synced.totalEstimatedEarnings ?? 0).toFixed(4)}`)
+  } catch (e) {
+    console.error('[REVENUE-SYNC] error:', e.message)
+  }
+}
+
+// Run immediately on start, then on independent timers.
+viewSyncTick()
+withRetry(() => revenueCycle(), 'cycle').catch(e => console.error('[REVENUE] Cycle error:', e.message))
+
+setInterval(viewSyncTick, VIEW_SYNC_MS)
 setInterval(() => {
-  revenueCycle().catch(e => console.error('[REVENUE] Cycle error:', e.message))
+  withRetry(() => revenueCycle(), 'cycle').catch(e => console.error('[REVENUE] Cycle error:', e.message))
 }, INTERVAL_MS)

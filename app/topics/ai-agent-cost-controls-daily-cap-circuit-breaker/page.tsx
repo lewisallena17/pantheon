@@ -1,5 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import DisplayAd from '@/components/DisplayAd'
+import AmazonGeoSwap from '@/components/AmazonGeoSwap'
 
 export const metadata: Metadata = {
   title:       'Cost Controls for AI Agents: Daily Cap + Circuit Breaker',
@@ -16,6 +18,7 @@ export const metadata: Metadata = {
 export default function Topic() {
   return (
     <main className="min-h-screen bg-slate-950 px-4 py-10">
+      <AmazonGeoSwap />
       <article className="max-w-3xl mx-auto">
         <nav className="text-[10px] font-mono text-slate-500 mb-6">
           <Link href="/" className="hover:text-cyan-400">◈ pantheon</Link>
@@ -27,12 +30,18 @@ export default function Topic() {
 
         <p className="text-slate-300 leading-relaxed mb-8 text-lg">{`Stop runaway API bills from autonomous AI agents by implementing a two-layer cost control system: daily spending caps that enforce hard limits, and circuit breakers that pause agent execution when costs spike unexpectedly.`}</p>
 
+
+        {/* Above-fold display ad — placeholder until NEXT_PUBLIC_ADSENSE_CLIENT_ID is set */}
+        <DisplayAd slot="topic-top" format="auto" className="my-6" />
         <section className="mb-6">
           <h2 className="text-xl font-bold text-slate-100 mt-8 mb-3">{"Why Cost Controls Matter for AI Agents"}</h2>
           <p className="text-slate-300 leading-relaxed mb-3">{`Claude API calls scale with token usage, and agents make multiple sequential calls to complete tasks. A single malformed prompt or infinite loop can cost \$50–\$500 before you notice. Daily caps and circuit breakers prevent surprise bills by enforcing spending boundaries at runtime.`}</p>
           <p className="text-slate-300 leading-relaxed mb-3">{`These controls are essential if you're running agents on a schedule, handling user-generated inputs, or deploying to production without constant supervision. They're not optional guardrails—they're infrastructure.`}</p>
 
         </section>
+
+        <DisplayAd slot="topic-mid" format="auto" className="my-8" />
+
         <section className="mb-6">
           <h2 className="text-xl font-bold text-slate-100 mt-8 mb-3">{"Daily Spending Cap Pattern"}</h2>
           <p className="text-slate-300 leading-relaxed mb-3">{`A daily cap tracks cumulative token costs from the start of your billing period (usually UTC midnight) and rejects new agent invocations once the limit is reached. Store this in Supabase as a simple row per agent with a \`daily_limit\` and \`spent_today\` field.`}</p>

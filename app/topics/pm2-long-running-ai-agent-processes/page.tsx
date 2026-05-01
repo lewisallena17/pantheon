@@ -1,5 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import DisplayAd from '@/components/DisplayAd'
+import AmazonGeoSwap from '@/components/AmazonGeoSwap'
 
 export const metadata: Metadata = {
   title:       'Running AI Agents 24/7 with PM2 | Production Guide',
@@ -16,6 +18,7 @@ export const metadata: Metadata = {
 export default function Topic() {
   return (
     <main className="min-h-screen bg-slate-950 px-4 py-10">
+      <AmazonGeoSwap />
       <article className="max-w-3xl mx-auto">
         <nav className="text-[10px] font-mono text-slate-500 mb-6">
           <Link href="/" className="hover:text-cyan-400">◈ pantheon</Link>
@@ -27,12 +30,18 @@ export default function Topic() {
 
         <p className="text-slate-300 leading-relaxed mb-8 text-lg">{`PM2 keeps your AI agents alive through restarts, crashes, and deployments—so your Claude-powered automation runs reliably 24/7 without manual intervention.`}</p>
 
+
+        {/* Above-fold display ad — placeholder until NEXT_PUBLIC_ADSENSE_CLIENT_ID is set */}
+        <DisplayAd slot="topic-top" format="auto" className="my-6" />
         <section className="mb-6">
           <h2 className="text-xl font-bold text-slate-100 mt-8 mb-3">{"Why PM2 for AI Agents"}</h2>
           <p className="text-slate-300 leading-relaxed mb-3">{`AI agents built with Claude often run background jobs: data processing, webhook handlers, scheduled tasks, agentic loops. Unlike stateless APIs, these agents maintain state, manage queues, and need to survive server restarts. PM2 handles process resurrection, clustering, and log management out of the box.`}</p>
           <p className="text-slate-300 leading-relaxed mb-3">{`Without process management, a single crash means dead agents until you manually redeploy. With PM2, your agent restarts automatically, picks up where it left off from your database, and logs everything for debugging.`}</p>
 
         </section>
+
+        <DisplayAd slot="topic-mid" format="auto" className="my-8" />
+
         <section className="mb-6">
           <h2 className="text-xl font-bold text-slate-100 mt-8 mb-3">{"Setting Up PM2 for Your Agent Process"}</h2>
           <p className="text-slate-300 leading-relaxed mb-3">{`Create an \`ecosystem.config.js\` file at your project root. This tells PM2 how to run your Next.js API route or background worker, how many instances to spawn, and restart behavior.`}</p>

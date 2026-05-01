@@ -1,5 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import DisplayAd from '@/components/DisplayAd'
+import AmazonGeoSwap from '@/components/AmazonGeoSwap'
 
 export const metadata: Metadata = {
   title:       'Zero-to-One Multi-Agent AI System in TypeScript',
@@ -16,6 +18,7 @@ export const metadata: Metadata = {
 export default function Topic() {
   return (
     <main className="min-h-screen bg-slate-950 px-4 py-10">
+      <AmazonGeoSwap />
       <article className="max-w-3xl mx-auto">
         <nav className="text-[10px] font-mono text-slate-500 mb-6">
           <Link href="/" className="hover:text-cyan-400">◈ pantheon</Link>
@@ -27,12 +30,18 @@ export default function Topic() {
 
         <p className="text-slate-300 leading-relaxed mb-8 text-lg">{`This guide gives you a concrete, working architecture for a zero-to-one multi-agent AI system in TypeScript — covering agent orchestration, tool registration, memory persistence with Supabase, and a streaming Next.js frontend, so you ship something real instead of another demo.`}</p>
 
+
+        {/* Above-fold display ad — placeholder until NEXT_PUBLIC_ADSENSE_CLIENT_ID is set */}
+        <DisplayAd slot="topic-top" format="auto" className="my-6" />
         <section className="mb-6">
           <h2 className="text-xl font-bold text-slate-100 mt-8 mb-3">{"What 'Multi-Agent' Actually Means in Practice"}</h2>
           <p className="text-slate-300 leading-relaxed mb-3">{`A multi-agent system is not just multiple API calls. It is a set of specialized agents — each with a defined role, tool access, and context window — coordinated by an orchestrator that routes tasks, aggregates results, and decides when the job is done.`}</p>
           <p className="text-slate-300 leading-relaxed mb-3">{`For indie builders, the practical split is: one Orchestrator agent that breaks down the user goal, two or three Worker agents that execute discrete subtasks (web search, code execution, data retrieval), and a Critic agent that validates outputs before they surface to the user. This pattern keeps each agent's prompt focused and its failure surface small.`}</p>
 
         </section>
+
+        <DisplayAd slot="topic-mid" format="auto" className="my-8" />
+
         <section className="mb-6">
           <h2 className="text-xl font-bold text-slate-100 mt-8 mb-3">{"Defining Agent Roles and Tool Schemas in TypeScript"}</h2>
           <p className="text-slate-300 leading-relaxed mb-3">{`Start by defining each agent as a typed object with a system prompt, an allowed tool list, and a max-token budget. TypeScript interfaces enforce this contract across your codebase and make it trivial to add agents later without breaking existing ones.`}</p>

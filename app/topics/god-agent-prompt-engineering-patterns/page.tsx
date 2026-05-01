@@ -1,5 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import DisplayAd from '@/components/DisplayAd'
+import AmazonGeoSwap from '@/components/AmazonGeoSwap'
 
 export const metadata: Metadata = {
   title:       'Prompt Engineering Patterns for Orchestrator Agents',
@@ -16,6 +18,7 @@ export const metadata: Metadata = {
 export default function Topic() {
   return (
     <main className="min-h-screen bg-slate-950 px-4 py-10">
+      <AmazonGeoSwap />
       <article className="max-w-3xl mx-auto">
         <nav className="text-[10px] font-mono text-slate-500 mb-6">
           <Link href="/" className="hover:text-cyan-400">◈ pantheon</Link>
@@ -27,6 +30,9 @@ export default function Topic() {
 
         <p className="text-slate-300 leading-relaxed mb-8 text-lg">{`Building multi-step AI agents requires more than chaining API calls—you need proven prompt patterns that handle routing, fallbacks, and context management at scale, and this guide shows you exactly which patterns work in production systems.`}</p>
 
+
+        {/* Above-fold display ad — placeholder until NEXT_PUBLIC_ADSENSE_CLIENT_ID is set */}
+        <DisplayAd slot="topic-top" format="auto" className="my-6" />
         <section className="mb-6">
           <h2 className="text-xl font-bold text-slate-100 mt-8 mb-3">{"The Routing Pattern: Directing Agent Behavior"}</h2>
           <p className="text-slate-300 leading-relaxed mb-3">{`Orchestrator agents often need to decide between multiple execution paths. Rather than building complex conditional logic in your application layer, embed routing decisions directly into your prompt.`}</p>
@@ -43,6 +49,9 @@ Respond with JSON: {"route": "search|database|analysis", "confidence": 0.0-1.0, 
 
 User request: \${userMessage}\`;`}</code></pre>
         </section>
+
+        <DisplayAd slot="topic-mid" format="auto" className="my-8" />
+
         <section className="mb-6">
           <h2 className="text-xl font-bold text-slate-100 mt-8 mb-3">{"Context Window Management for Long Workflows"}</h2>
           <p className="text-slate-300 leading-relaxed mb-3">{`Long agent workflows consume tokens rapidly. Instead of accumulating full conversation history, implement a summarization pattern where completed steps are condensed into structured summaries.`}</p>

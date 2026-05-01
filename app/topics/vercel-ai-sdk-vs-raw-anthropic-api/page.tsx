@@ -1,5 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import DisplayAd from '@/components/DisplayAd'
+import AmazonGeoSwap from '@/components/AmazonGeoSwap'
 
 export const metadata: Metadata = {
   title:       'Vercel AI SDK vs Raw Anthropic API: Pros & Cons',
@@ -16,6 +18,7 @@ export const metadata: Metadata = {
 export default function Topic() {
   return (
     <main className="min-h-screen bg-slate-950 px-4 py-10">
+      <AmazonGeoSwap />
       <article className="max-w-3xl mx-auto">
         <nav className="text-[10px] font-mono text-slate-500 mb-6">
           <Link href="/" className="hover:text-cyan-400">◈ pantheon</Link>
@@ -27,12 +30,18 @@ export default function Topic() {
 
         <p className="text-slate-300 leading-relaxed mb-8 text-lg">{`Choosing between Vercel AI SDK and the raw Anthropic API determines whether you'll ship your Claude-powered agent in days or weeks—here's exactly what you're trading off.`}</p>
 
+
+        {/* Above-fold display ad — placeholder until NEXT_PUBLIC_ADSENSE_CLIENT_ID is set */}
+        <DisplayAd slot="topic-top" format="auto" className="my-6" />
         <section className="mb-6">
           <h2 className="text-xl font-bold text-slate-100 mt-8 mb-3">{"When to Use Vercel AI SDK"}</h2>
           <p className="text-slate-300 leading-relaxed mb-3">{`Vercel AI SDK abstracts away streaming complexity, token management, and response formatting. It ships with built-in support for Next.js server functions, React hooks for UI binding, and automatic error retry logic. If you're building a consumer-facing chatbot or need to prototype fast, this is your path.`}</p>
           <p className="text-slate-300 leading-relaxed mb-3">{`The SDK handles streaming responses client-side elegantly through \`useCompletion\` and \`useChat\` hooks. You get loading states, error boundaries, and token counting without wiring them yourself. For indie developers on tight timelines, this saves 20-30 hours of integration work.`}</p>
 
         </section>
+
+        <DisplayAd slot="topic-mid" format="auto" className="my-8" />
+
         <section className="mb-6">
           <h2 className="text-xl font-bold text-slate-100 mt-8 mb-3">{"Raw Anthropic API: Fine-Grained Control"}</h2>
           <p className="text-slate-300 leading-relaxed mb-3">{`The raw API gives you direct access to Claude's full feature set without SDK abstractions. You control exactly when to batch requests, implement custom caching strategies, and optimize for cost. This matters when you're building agent systems that make hundreds of API calls daily.`}</p>

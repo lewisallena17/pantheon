@@ -1,5 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import DisplayAd from '@/components/DisplayAd'
+import AmazonGeoSwap from '@/components/AmazonGeoSwap'
 
 export const metadata: Metadata = {
   title:       'Pixel-Art UI for Developer Dashboards | Claude + Next.js',
@@ -16,6 +18,7 @@ export const metadata: Metadata = {
 export default function Topic() {
   return (
     <main className="min-h-screen bg-slate-950 px-4 py-10">
+      <AmazonGeoSwap />
       <article className="max-w-3xl mx-auto">
         <nav className="text-[10px] font-mono text-slate-500 mb-6">
           <Link href="/" className="hover:text-cyan-400">◈ pantheon</Link>
@@ -27,6 +30,9 @@ export default function Topic() {
 
         <p className="text-slate-300 leading-relaxed mb-8 text-lg">{`Pixel-art UI cuts through dashboard bloat—faster load times, lower complexity, and a visual style that actually scales with your indie product as it grows.`}</p>
 
+
+        {/* Above-fold display ad — placeholder until NEXT_PUBLIC_ADSENSE_CLIENT_ID is set */}
+        <DisplayAd slot="topic-top" format="auto" className="my-6" />
         <section className="mb-6">
           <h2 className="text-xl font-bold text-slate-100 mt-8 mb-3">{"Why Pixel-Art Works for Agent Dashboards"}</h2>
           <p className="text-slate-300 leading-relaxed mb-3">{`Agent systems generate a lot of noise: logs, token counts, branching decision trees, vector embeddings. Pixel-art constraints force you to display only what matters. Each pixel must earn its place. This isn't nostalgia—it's information design.`}</p>
@@ -34,6 +40,9 @@ export default function Topic() {
           <p className="text-slate-300 leading-relaxed mb-3">{`Indie developers shipping fast win with simpler styling systems. CSS grid snaps to pixel units. Sprites load once. Accessibility is explicit—no hover states hiding critical data.`}</p>
 
         </section>
+
+        <DisplayAd slot="topic-mid" format="auto" className="my-8" />
+
         <section className="mb-6">
           <h2 className="text-xl font-bold text-slate-100 mt-8 mb-3">{"Component Patterns for Agent Monitoring"}</h2>
           <p className="text-slate-300 leading-relaxed mb-3">{`A pixel-art dashboard typically uses 4–5 core components: status tiles (agent state: idle/running/error), metric bars (token usage, cost), log viewers (scrollable monospace grids), and tool cards (which functions fired, their inputs/outputs).`}</p>

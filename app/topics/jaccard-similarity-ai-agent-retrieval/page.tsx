@@ -1,5 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import DisplayAd from '@/components/DisplayAd'
+import AmazonGeoSwap from '@/components/AmazonGeoSwap'
 
 export const metadata: Metadata = {
   title:       'Jaccard Similarity for AI Agent Lesson Retrieval',
@@ -16,6 +18,7 @@ export const metadata: Metadata = {
 export default function Topic() {
   return (
     <main className="min-h-screen bg-slate-950 px-4 py-10">
+      <AmazonGeoSwap />
       <article className="max-w-3xl mx-auto">
         <nav className="text-[10px] font-mono text-slate-500 mb-6">
           <Link href="/" className="hover:text-cyan-400">◈ pantheon</Link>
@@ -27,12 +30,18 @@ export default function Topic() {
 
         <p className="text-slate-300 leading-relaxed mb-8 text-lg">{`Jaccard Similarity gives you a fast, interpretable way to find the right training lessons for your AI agent to retrieve and apply—without the computational overhead of embeddings or the brittleness of keyword matching.`}</p>
 
+
+        {/* Above-fold display ad — placeholder until NEXT_PUBLIC_ADSENSE_CLIENT_ID is set */}
+        <DisplayAd slot="topic-top" format="auto" className="my-6" />
         <section className="mb-6">
           <h2 className="text-xl font-bold text-slate-100 mt-8 mb-3">{"Why Jaccard Similarity Beats Keyword Matching for Lesson Retrieval"}</h2>
           <p className="text-slate-300 leading-relaxed mb-3">{`When building agentic systems, you need your AI to pull the right lessons from a knowledge base to inform its next action. Keyword matching fails because it ignores semantic relationships. Embedding similarity works but adds latency and cost.`}</p>
           <p className="text-slate-300 leading-relaxed mb-3">{`Jaccard Similarity—the ratio of intersection to union of two sets—bridges this gap. It's set-based, so it naturally captures what lessons and contexts have in common, requires zero ML infrastructure, and runs in milliseconds on Supabase with a simple SQL query.`}</p>
 
         </section>
+
+        <DisplayAd slot="topic-mid" format="auto" className="my-8" />
+
         <section className="mb-6">
           <h2 className="text-xl font-bold text-slate-100 mt-8 mb-3">{"The Math: How Jaccard Works for Your Agent"}</h2>
           <p className="text-slate-300 leading-relaxed mb-3">{`Jaccard(A, B) = |A ∩ B| / |A ∪ B|. For lesson retrieval, convert your agent's current context into a set of tokens or concepts, then compare it against stored lesson prerequisite sets.`}</p>

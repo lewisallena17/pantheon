@@ -1,5 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import DisplayAd from '@/components/DisplayAd'
+import AmazonGeoSwap from '@/components/AmazonGeoSwap'
 
 export const metadata: Metadata = {
   title:       'Strict-Mode TypeScript for AI Agent Projects',
@@ -16,6 +18,7 @@ export const metadata: Metadata = {
 export default function Topic() {
   return (
     <main className="min-h-screen bg-slate-950 px-4 py-10">
+      <AmazonGeoSwap />
       <article className="max-w-3xl mx-auto">
         <nav className="text-[10px] font-mono text-slate-500 mb-6">
           <Link href="/" className="hover:text-cyan-400">◈ pantheon</Link>
@@ -27,12 +30,18 @@ export default function Topic() {
 
         <p className="text-slate-300 leading-relaxed mb-8 text-lg">{`Strict-mode TypeScript catches the type errors that crash AI agents in production—unknown property access, null dereferences, implicit any—before they hit your Claude API calls or Supabase queries.`}</p>
 
+
+        {/* Above-fold display ad — placeholder until NEXT_PUBLIC_ADSENSE_CLIENT_ID is set */}
+        <DisplayAd slot="topic-top" format="auto" className="my-6" />
         <section className="mb-6">
           <h2 className="text-xl font-bold text-slate-100 mt-8 mb-3">{"Why Strict Mode Matters for AI Agent Systems"}</h2>
           <p className="text-slate-300 leading-relaxed mb-3">{`AI agents make decisions based on function outputs and database state. A single type error—like accessing \`response.data.user_id\` when \`data\` might be undefined—silently breaks your agent's reasoning loop. Strict mode forces you to handle these cases explicitly.`}</p>
           <p className="text-slate-300 leading-relaxed mb-3">{`When your agent integrates with Claude via tool_use, malformed payloads get rejected. When querying Supabase for agent memory or context, missing fields cause deserialization failures. Strict TypeScript prevents both.`}</p>
 
         </section>
+
+        <DisplayAd slot="topic-mid" format="auto" className="my-8" />
+
         <section className="mb-6">
           <h2 className="text-xl font-bold text-slate-100 mt-8 mb-3">{"Core Strict Flags for Agent Development"}</h2>
           <p className="text-slate-300 leading-relaxed mb-3">{`Set these in tsconfig.json: noImplicitAny (all variables need explicit types), strictNullChecks (null and undefined are tracked separately), strictFunctionTypes (function parameter types must match exactly), and noImplicitThis (this context must be explicit).`}</p>

@@ -1,5 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import DisplayAd from '@/components/DisplayAd'
+import AmazonGeoSwap from '@/components/AmazonGeoSwap'
 
 export const metadata: Metadata = {
   title:       'The Self-Improving AI Orchestrator Pattern Explained',
@@ -16,6 +18,7 @@ export const metadata: Metadata = {
 export default function Topic() {
   return (
     <main className="min-h-screen bg-slate-950 px-4 py-10">
+      <AmazonGeoSwap />
       <article className="max-w-3xl mx-auto">
         <nav className="text-[10px] font-mono text-slate-500 mb-6">
           <Link href="/" className="hover:text-cyan-400">◈ pantheon</Link>
@@ -27,12 +30,18 @@ export default function Topic() {
 
         <p className="text-slate-300 leading-relaxed mb-8 text-lg">{`The Self-Improving AI Orchestrator Pattern lets your agent system evaluate its own outputs, log failures to a database, and automatically refine its prompts and routing logic — so your product gets smarter every time it runs, without you manually tuning it.`}</p>
 
+
+        {/* Above-fold display ad — placeholder until NEXT_PUBLIC_ADSENSE_CLIENT_ID is set */}
+        <DisplayAd slot="topic-top" format="auto" className="my-6" />
         <section className="mb-6">
           <h2 className="text-xl font-bold text-slate-100 mt-8 mb-3">{"What the Pattern Actually Does"}</h2>
           <p className="text-slate-300 leading-relaxed mb-3">{`At its core, the pattern wraps every agent execution in an eval loop. After each task completes, a critic agent scores the output against a rubric, writes a structured feedback record to Supabase, and optionally triggers a prompt-rewrite agent that patches the system prompt for the next run.`}</p>
           <p className="text-slate-300 leading-relaxed mb-3">{`This is different from simple retry logic. The orchestrator isn't just re-running failed tasks — it's accumulating a ground-truth dataset of what worked, what didn't, and why. Over dozens of runs you get a self-correcting system without manually reviewing logs.`}</p>
 
         </section>
+
+        <DisplayAd slot="topic-mid" format="auto" className="my-8" />
+
         <section className="mb-6">
           <h2 className="text-xl font-bold text-slate-100 mt-8 mb-3">{"Core Architecture: Orchestrator, Worker, Critic"}</h2>
           <p className="text-slate-300 leading-relaxed mb-3">{`Split your agent graph into three roles. The Orchestrator decomposes the goal and routes subtasks. Workers execute discrete tasks using Claude tool-use calls. The Critic is a separate Claude call that receives the worker's output plus the original intent and returns a JSON score object with a pass/fail flag and a reason string.`}</p>

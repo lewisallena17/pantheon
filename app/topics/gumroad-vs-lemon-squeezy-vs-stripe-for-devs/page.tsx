@@ -1,5 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import DisplayAd from '@/components/DisplayAd'
+import AmazonGeoSwap from '@/components/AmazonGeoSwap'
 
 export const metadata: Metadata = {
   title:       'Gumroad vs Lemon Squeezy vs Stripe: Pick the Right Payment Tool',
@@ -16,6 +18,7 @@ export const metadata: Metadata = {
 export default function Topic() {
   return (
     <main className="min-h-screen bg-slate-950 px-4 py-10">
+      <AmazonGeoSwap />
       <article className="max-w-3xl mx-auto">
         <nav className="text-[10px] font-mono text-slate-500 mb-6">
           <Link href="/" className="hover:text-cyan-400">◈ pantheon</Link>
@@ -27,12 +30,18 @@ export default function Topic() {
 
         <p className="text-slate-300 leading-relaxed mb-8 text-lg">{`If you're shipping an AI agent system built on Claude and Next.js, your payment processor choice directly affects your time-to-revenue and infrastructure complexity—here's how to pick the right one.`}</p>
 
+
+        {/* Above-fold display ad — placeholder until NEXT_PUBLIC_ADSENSE_CLIENT_ID is set */}
+        <DisplayAd slot="topic-top" format="auto" className="my-6" />
         <section className="mb-6">
           <h2 className="text-xl font-bold text-slate-100 mt-8 mb-3">{"Payment Processing for AI Agent Systems"}</h2>
           <p className="text-slate-300 leading-relaxed mb-3">{`AI agent monetization splits into three distinct patterns: usage-based billing (pay-per-API-call), subscription tiers (tiered access to model capability), and one-time purchases (standalone agents or bundles). Your choice of processor should handle webhook delivery reliably, support idempotent requests (critical when Claude processing takes 30+ seconds), and integrate cleanly into a Supabase-backed backend.`}</p>
           <p className="text-slate-300 leading-relaxed mb-3">{`Gumroad, Lemon Squeezy, and Stripe each optimize for different use cases. Gumroad targets creators with minimal setup; Lemon Squeezy handles both digital products and subscriptions with EU VAT compliance built-in; Stripe offers maximum control but demands more engineering work.`}</p>
 
         </section>
+
+        <DisplayAd slot="topic-mid" format="auto" className="my-8" />
+
         <section className="mb-6">
           <h2 className="text-xl font-bold text-slate-100 mt-8 mb-3">{"Gumroad: Fastest to First Sale"}</h2>
           <p className="text-slate-300 leading-relaxed mb-3">{`Gumroad requires zero backend integration—you can link to a Gumroad product page and handle fulfillment via email or webhook. For a solo founder shipping an AI agent as a downloadable bundle or access token, this is unbeatable speed.`}</p>

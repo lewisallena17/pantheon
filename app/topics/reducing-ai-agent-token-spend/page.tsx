@@ -1,5 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import DisplayAd from '@/components/DisplayAd'
+import AmazonGeoSwap from '@/components/AmazonGeoSwap'
 
 export const metadata: Metadata = {
   title:       '5 Techniques for Reducing AI Agent Token Spend',
@@ -16,6 +18,7 @@ export const metadata: Metadata = {
 export default function Topic() {
   return (
     <main className="min-h-screen bg-slate-950 px-4 py-10">
+      <AmazonGeoSwap />
       <article className="max-w-3xl mx-auto">
         <nav className="text-[10px] font-mono text-slate-500 mb-6">
           <Link href="/" className="hover:text-cyan-400">◈ pantheon</Link>
@@ -27,12 +30,18 @@ export default function Topic() {
 
         <p className="text-slate-300 leading-relaxed mb-8 text-lg">{`Token costs can spiral quickly when building AI agents—but with the right techniques, you can reduce spending by 40-60% without sacrificing performance or response quality.`}</p>
 
+
+        {/* Above-fold display ad — placeholder until NEXT_PUBLIC_ADSENSE_CLIENT_ID is set */}
+        <DisplayAd slot="topic-top" format="auto" className="my-6" />
         <section className="mb-6">
           <h2 className="text-xl font-bold text-slate-100 mt-8 mb-3">{"1. Implement Prompt Caching for Repeated Context"}</h2>
           <p className="text-slate-300 leading-relaxed mb-3">{`Claude's prompt caching feature stores large system prompts and context blocks, charging only 10% of the cache creation cost for cache hits. If your agent loads the same 10KB system prompt 100 times monthly, you're reusing ~1M tokens at 90% discount.`}</p>
           <p className="text-slate-300 leading-relaxed mb-3">{`Enable caching by setting \`cache_control: {"type": "ephemeral"}\` on your system prompt. This works best for agents with stable instructions, lengthy examples, or documentation that doesn't change per-request.`}</p>
 
         </section>
+
+        <DisplayAd slot="topic-mid" format="auto" className="my-8" />
+
         <section className="mb-6">
           <h2 className="text-xl font-bold text-slate-100 mt-8 mb-3">{"2. Batch Non-Urgent Requests with the Batch API"}</h2>
           <p className="text-slate-300 leading-relaxed mb-3">{`The Batch API processes requests at 50% discount if you can wait 1 minute to 24 hours for results. For async workflows—report generation, data enrichment, background analysis—batching is nearly free savings.`}</p>

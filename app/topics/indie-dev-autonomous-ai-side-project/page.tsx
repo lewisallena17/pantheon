@@ -1,5 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import DisplayAd from '@/components/DisplayAd'
+import AmazonGeoSwap from '@/components/AmazonGeoSwap'
 
 export const metadata: Metadata = {
   title:       'The Indie Dev Playbook for Autonomous AI Side Projects',
@@ -16,6 +18,7 @@ export const metadata: Metadata = {
 export default function Topic() {
   return (
     <main className="min-h-screen bg-slate-950 px-4 py-10">
+      <AmazonGeoSwap />
       <article className="max-w-3xl mx-auto">
         <nav className="text-[10px] font-mono text-slate-500 mb-6">
           <Link href="/" className="hover:text-cyan-400">◈ pantheon</Link>
@@ -27,6 +30,9 @@ export default function Topic() {
 
         <p className="text-slate-300 leading-relaxed mb-8 text-lg">{`Building autonomous AI agents as a solo developer means making smart architectural choices upfront—this playbook gives you the specific patterns, database schemas, and API integrations that let you ship faster without burning out on infrastructure.`}</p>
 
+
+        {/* Above-fold display ad — placeholder until NEXT_PUBLIC_ADSENSE_CLIENT_ID is set */}
+        <DisplayAd slot="topic-top" format="auto" className="my-6" />
         <section className="mb-6">
           <h2 className="text-xl font-bold text-slate-100 mt-8 mb-3">{"Architecture: Agent-Server Communication Pattern"}</h2>
           <p className="text-slate-300 leading-relaxed mb-3">{`Your AI agent needs a reliable message queue and state store. The proven indie pattern is a Next.js API route that acts as a broker between your Claude agent and Supabase. Each agent run gets a session ID; messages are stored as immutable logs; tool calls are queued and processed asynchronously.`}</p>
@@ -45,6 +51,9 @@ export default function Topic() {
   return Response.json(response);
 }`}</code></pre>
         </section>
+
+        <DisplayAd slot="topic-mid" format="auto" className="my-8" />
+
         <section className="mb-6">
           <h2 className="text-xl font-bold text-slate-100 mt-8 mb-3">{"Tool Use: Keep Agents Scoped and Testable"}</h2>
           <p className="text-slate-300 leading-relaxed mb-3">{`Define your Claude tools narrowly. Instead of a generic 'database' tool, create fetch_user, update_user, list_tasks. This forces you to think through exactly what your agent can do and makes unit testing trivial—just mock the tool implementations.`}</p>

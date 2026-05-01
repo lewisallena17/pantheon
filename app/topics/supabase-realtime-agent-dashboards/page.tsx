@@ -1,5 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import DisplayAd from '@/components/DisplayAd'
+import AmazonGeoSwap from '@/components/AmazonGeoSwap'
 
 export const metadata: Metadata = {
   title:       'Supabase Realtime for AI Agent Dashboards',
@@ -16,6 +18,7 @@ export const metadata: Metadata = {
 export default function Topic() {
   return (
     <main className="min-h-screen bg-slate-950 px-4 py-10">
+      <AmazonGeoSwap />
       <article className="max-w-3xl mx-auto">
         <nav className="text-[10px] font-mono text-slate-500 mb-6">
           <Link href="/" className="hover:text-cyan-400">◈ pantheon</Link>
@@ -27,12 +30,18 @@ export default function Topic() {
 
         <p className="text-slate-300 leading-relaxed mb-8 text-lg">{`Supabase Realtime lets you stream agent state changes directly to your dashboard without polling, so you see Claude's decisions, token usage, and task progress update instantly as they happen.`}</p>
 
+
+        {/* Above-fold display ad — placeholder until NEXT_PUBLIC_ADSENSE_CLIENT_ID is set */}
+        <DisplayAd slot="topic-top" format="auto" className="my-6" />
         <section className="mb-6">
           <h2 className="text-xl font-bold text-slate-100 mt-8 mb-3">{"Why Polling Kills AI Agent Dashboards"}</h2>
           <p className="text-slate-300 leading-relaxed mb-3">{`When you build an AI agent system, you need visibility into what's happening right now. Claude processes tasks, makes decisions, and your dashboard needs to reflect that in real-time. Polling every 2–5 seconds creates lag, wastes database queries, and makes the interface feel stale.`}</p>
           <p className="text-slate-300 leading-relaxed mb-3">{`Supabase Realtime solves this with WebSocket subscriptions. Instead of asking your database 'has anything changed?', you listen for changes as they happen. Your dashboard updates within milliseconds, not seconds. For agent systems, this means seeing task completions, token consumption, and decision branches the moment they occur.`}</p>
 
         </section>
+
+        <DisplayAd slot="topic-mid" format="auto" className="my-8" />
+
         <section className="mb-6">
           <h2 className="text-xl font-bold text-slate-100 mt-8 mb-3">{"Setting Up Realtime Subscriptions for Agent Events"}</h2>
           <p className="text-slate-300 leading-relaxed mb-3">{`Create a simple agent_events table and subscribe to changes in your Next.js dashboard component. Supabase broadcast channels work perfectly for high-frequency updates—token counts, status changes, and reasoning traces.`}</p>

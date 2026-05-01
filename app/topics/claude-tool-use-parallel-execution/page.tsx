@@ -1,5 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import DisplayAd from '@/components/DisplayAd'
+import AmazonGeoSwap from '@/components/AmazonGeoSwap'
 
 export const metadata: Metadata = {
   title:       'Parallel Tool Execution Patterns in Claude | AI Agents',
@@ -16,6 +18,7 @@ export const metadata: Metadata = {
 export default function Topic() {
   return (
     <main className="min-h-screen bg-slate-950 px-4 py-10">
+      <AmazonGeoSwap />
       <article className="max-w-3xl mx-auto">
         <nav className="text-[10px] font-mono text-slate-500 mb-6">
           <Link href="/" className="hover:text-cyan-400">◈ pantheon</Link>
@@ -27,12 +30,18 @@ export default function Topic() {
 
         <p className="text-slate-300 leading-relaxed mb-8 text-lg">{`Running Claude tool calls sequentially tanks your agent's throughput—learn the parallel execution patterns that let you invoke multiple tools simultaneously and reduce latency by 60-80%.`}</p>
 
+
+        {/* Above-fold display ad — placeholder until NEXT_PUBLIC_ADSENSE_CLIENT_ID is set */}
+        <DisplayAd slot="topic-top" format="auto" className="my-6" />
         <section className="mb-6">
           <h2 className="text-xl font-bold text-slate-100 mt-8 mb-3">{"Why Sequential Tool Calls Kill Agent Performance"}</h2>
           <p className="text-slate-300 leading-relaxed mb-3">{`When Claude needs to fetch a user's profile, check inventory, and validate payment in sequence, each call waits for the previous one to finish. On a 200ms network, three calls become 600ms of wasted time. For production agents handling high-volume requests, this compounds across thousands of concurrent users.`}</p>
           <p className="text-slate-300 leading-relaxed mb-3">{`Parallel execution means Claude decides which tools can run together (they have no dependencies), and your backend fires them all at once. The difference: 600ms becomes 200ms. That's the gap between a snappy agent and one that feels sluggish.`}</p>
 
         </section>
+
+        <DisplayAd slot="topic-mid" format="auto" className="my-8" />
+
         <section className="mb-6">
           <h2 className="text-xl font-bold text-slate-100 mt-8 mb-3">{"Claude's Tool Use Response Format for Parallel Calls"}</h2>
           <p className="text-slate-300 leading-relaxed mb-3">{`Claude returns tool_use blocks in a single response when multiple tools are independent. Your handler receives an array of tool calls—not one at a time, but all together. This is key: you're not waiting for Claude to ask for the first result before it asks for the second.`}</p>

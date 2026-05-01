@@ -1,5 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import DisplayAd from '@/components/DisplayAd'
+import AmazonGeoSwap from '@/components/AmazonGeoSwap'
 
 export const metadata: Metadata = {
   title:       'Reducing Next.js Cold Starts on Vercel',
@@ -16,6 +18,7 @@ export const metadata: Metadata = {
 export default function Topic() {
   return (
     <main className="min-h-screen bg-slate-950 px-4 py-10">
+      <AmazonGeoSwap />
       <article className="max-w-3xl mx-auto">
         <nav className="text-[10px] font-mono text-slate-500 mb-6">
           <Link href="/" className="hover:text-cyan-400">◈ pantheon</Link>
@@ -27,12 +30,18 @@ export default function Topic() {
 
         <p className="text-slate-300 leading-relaxed mb-8 text-lg">{`Cold starts destroy user experience in production—a 5-second delay before your Claude AI agent responds costs you conversions and trust. This guide walks you through the exact techniques that reduce Next.js cold starts on Vercel from multiple seconds to under 500ms, with code you can implement today.`}</p>
 
+
+        {/* Above-fold display ad — placeholder until NEXT_PUBLIC_ADSENSE_CLIENT_ID is set */}
+        <DisplayAd slot="topic-top" format="auto" className="my-6" />
         <section className="mb-6">
           <h2 className="text-xl font-bold text-slate-100 mt-8 mb-3">{"Why Next.js Cold Starts Matter for AI Agents"}</h2>
           <p className="text-slate-300 leading-relaxed mb-3">{`When you deploy an AI agent system on Vercel's serverless functions, every request to Claude through your Next.js API route triggers a cold start. Your function container spins up, Node.js initializes, dependencies load, and database connections establish. For users, this feels like your app is broken.`}</p>
           <p className="text-slate-300 leading-relaxed mb-3">{`Indie teams building with Claude can't afford to lose users to timeout errors or perception of slowness. A 3-second cold start on a streaming response makes your agent feel unresponsive even if Claude replies instantly. The fix isn't about raw speed—it's about smart bundling, dependency management, and architecture choices.`}</p>
 
         </section>
+
+        <DisplayAd slot="topic-mid" format="auto" className="my-8" />
+
         <section className="mb-6">
           <h2 className="text-xl font-bold text-slate-100 mt-8 mb-3">{"Bundle Size: Your Biggest Lever"}</h2>
           <p className="text-slate-300 leading-relaxed mb-3">{`Next.js API routes ship your entire node_modules tree by default. If you're pulling in heavy dependencies (axios, moment, lodash), each cold start re-parses megabytes of JavaScript. The Vercel platform measures cold start time in seconds per 100MB of bundle size.`}</p>

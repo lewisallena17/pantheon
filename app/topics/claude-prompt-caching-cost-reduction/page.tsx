@@ -1,5 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import DisplayAd from '@/components/DisplayAd'
+import AmazonGeoSwap from '@/components/AmazonGeoSwap'
 
 export const metadata: Metadata = {
   title:       'Cut Claude API Costs with Prompt Caching',
@@ -16,6 +18,7 @@ export const metadata: Metadata = {
 export default function Topic() {
   return (
     <main className="min-h-screen bg-slate-950 px-4 py-10">
+      <AmazonGeoSwap />
       <article className="max-w-3xl mx-auto">
         <nav className="text-[10px] font-mono text-slate-500 mb-6">
           <Link href="/" className="hover:text-cyan-400">◈ pantheon</Link>
@@ -27,12 +30,18 @@ export default function Topic() {
 
         <p className="text-slate-300 leading-relaxed mb-8 text-lg">{`Prompt caching cuts your Claude API costs by up to 90% by reusing expensive token computations—here's exactly how to implement it in your Next.js agent stack.`}</p>
 
+
+        {/* Above-fold display ad — placeholder until NEXT_PUBLIC_ADSENSE_CLIENT_ID is set */}
+        <DisplayAd slot="topic-top" format="auto" className="my-6" />
         <section className="mb-6">
           <h2 className="text-xl font-bold text-slate-100 mt-8 mb-3">{"How Prompt Caching Saves Money"}</h2>
           <p className="text-slate-300 leading-relaxed mb-3">{`Claude's prompt caching feature stores the processing results of system prompts and context blocks, letting you reuse them without repaying full token costs. Cached tokens cost 90% less than regular input tokens—meaning a 10k-token system prompt costs ~100 tokens on subsequent API calls instead of 10,000.`}</p>
           <p className="text-slate-300 leading-relaxed mb-3">{`For AI agents that repeatedly process the same context (product documentation, user profiles, system instructions), this compounds fast. A production agent running 100 requests daily with a 5k-token cached context saves \$500+ monthly.`}</p>
 
         </section>
+
+        <DisplayAd slot="topic-mid" format="auto" className="my-8" />
+
         <section className="mb-6">
           <h2 className="text-xl font-bold text-slate-100 mt-8 mb-3">{"Setting Up Cache in Next.js with Claude SDK"}</h2>
           <p className="text-slate-300 leading-relaxed mb-3">{`Claude's SDK handles caching through request headers. Add \`cache_control\` to your system prompt and messages to mark them for caching. Cache writes cost full price but activate after 1,024 tokens; subsequent requests pay 90% less.`}</p>

@@ -1,5 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import DisplayAd from '@/components/DisplayAd'
+import AmazonGeoSwap from '@/components/AmazonGeoSwap'
 
 export const metadata: Metadata = {
   title:       'Passive Income via AI-Generated SEO Content',
@@ -16,6 +18,7 @@ export const metadata: Metadata = {
 export default function Topic() {
   return (
     <main className="min-h-screen bg-slate-950 px-4 py-10">
+      <AmazonGeoSwap />
       <article className="max-w-3xl mx-auto">
         <nav className="text-[10px] font-mono text-slate-500 mb-6">
           <Link href="/" className="hover:text-cyan-400">◈ pantheon</Link>
@@ -27,12 +30,18 @@ export default function Topic() {
 
         <p className="text-slate-300 leading-relaxed mb-8 text-lg">{`You can generate hundreds of SEO-optimized articles monthly using Claude's API paired with Next.js and Supabase—without hiring writers—but only if you automate the entire pipeline from keyword research through publishing.`}</p>
 
+
+        {/* Above-fold display ad — placeholder until NEXT_PUBLIC_ADSENSE_CLIENT_ID is set */}
+        <DisplayAd slot="topic-top" format="auto" className="my-6" />
         <section className="mb-6">
           <h2 className="text-xl font-bold text-slate-100 mt-8 mb-3">{"Why Claude Beats Commodity LLMs for SEO Content"}</h2>
           <p className="text-slate-300 leading-relaxed mb-3">{`Claude's extended thinking and nuanced instruction-following make it superior for SEO at scale. It understands semantic clustering, LSI keywords, and content depth without hallucinating citations. GPT-4 often overshoots word count; cheaper models tank E-E-A-T signals. Claude consistently ships production-ready content on the first pass.`}</p>
           <p className="text-slate-300 leading-relaxed mb-3">{`The cost math works: \$0.003 per 1K output tokens means generating 10,000 words of publish-ready content costs under \$3. At \$50–150 per article on freelance platforms, a single piece pays for 1,000+ generated articles.`}</p>
 
         </section>
+
+        <DisplayAd slot="topic-mid" format="auto" className="my-8" />
+
         <section className="mb-6">
           <h2 className="text-xl font-bold text-slate-100 mt-8 mb-3">{"Building the Content Pipeline in Next.js + Supabase"}</h2>
           <p className="text-slate-300 leading-relaxed mb-3">{`Your stack should separate concerns: a Supabase database for keywords and articles, a Next.js API route that calls Claude, and a background job queue (Bull or Inngest) for batch generation. This decoupling lets you scale horizontally without rewriting core logic.`}</p>

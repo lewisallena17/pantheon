@@ -1,5 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import DisplayAd from '@/components/DisplayAd'
+import AmazonGeoSwap from '@/components/AmazonGeoSwap'
 
 export const metadata: Metadata = {
   title:       'Supabase RLS Policies for AI Agent Writes',
@@ -16,6 +18,7 @@ export const metadata: Metadata = {
 export default function Topic() {
   return (
     <main className="min-h-screen bg-slate-950 px-4 py-10">
+      <AmazonGeoSwap />
       <article className="max-w-3xl mx-auto">
         <nav className="text-[10px] font-mono text-slate-500 mb-6">
           <Link href="/" className="hover:text-cyan-400">◈ pantheon</Link>
@@ -27,12 +30,18 @@ export default function Topic() {
 
         <p className="text-slate-300 leading-relaxed mb-8 text-lg">{`AI agents writing directly to your database sounds risky—until you lock it down with Supabase RLS policies that enforce row-level security based on agent identity and request context.`}</p>
 
+
+        {/* Above-fold display ad — placeholder until NEXT_PUBLIC_ADSENSE_CLIENT_ID is set */}
+        <DisplayAd slot="topic-top" format="auto" className="my-6" />
         <section className="mb-6">
           <h2 className="text-xl font-bold text-slate-100 mt-8 mb-3">{"Why RLS Matters for AI Agent Systems"}</h2>
           <p className="text-slate-300 leading-relaxed mb-3">{`When you give Claude or another AI agent database write permissions, you're essentially granting code execution privileges. RLS (Row-Level Security) is your safety net: it ensures agents can only modify rows they're explicitly allowed to touch, regardless of the connection's raw database credentials.`}</p>
           <p className="text-slate-300 leading-relaxed mb-3">{`Without RLS, a prompt injection or model hallucination could expose or corrupt unrelated data. With it, each agent operates within a confined scope—similar to user roles, but for autonomous systems.`}</p>
 
         </section>
+
+        <DisplayAd slot="topic-mid" format="auto" className="my-8" />
+
         <section className="mb-6">
           <h2 className="text-xl font-bold text-slate-100 mt-8 mb-3">{"Setting Up Agent Identity in Postgres"}</h2>
           <p className="text-slate-300 leading-relaxed mb-3">{`Supabase RLS uses Postgres's built-in role system. Create a dedicated role for your AI agent, then use JWT claims to dynamically set the active role for each request.`}</p>

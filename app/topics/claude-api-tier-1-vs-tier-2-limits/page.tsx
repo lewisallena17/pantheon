@@ -1,5 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import DisplayAd from '@/components/DisplayAd'
+import AmazonGeoSwap from '@/components/AmazonGeoSwap'
 
 export const metadata: Metadata = {
   title:       'Claude API Tier 1 vs Tier 2 Rate Limits',
@@ -16,6 +18,7 @@ export const metadata: Metadata = {
 export default function Topic() {
   return (
     <main className="min-h-screen bg-slate-950 px-4 py-10">
+      <AmazonGeoSwap />
       <article className="max-w-3xl mx-auto">
         <nav className="text-[10px] font-mono text-slate-500 mb-6">
           <Link href="/" className="hover:text-cyan-400">◈ pantheon</Link>
@@ -27,12 +30,18 @@ export default function Topic() {
 
         <p className="text-slate-300 leading-relaxed mb-8 text-lg">{`If you're building AI agents with Claude and hitting rate limit errors in production, you need to understand the hard RPM and TPM boundaries between Tier 1 and Tier 2—and how to architect around them before they break your system.`}</p>
 
+
+        {/* Above-fold display ad — placeholder until NEXT_PUBLIC_ADSENSE_CLIENT_ID is set */}
+        <DisplayAd slot="topic-top" format="auto" className="my-6" />
         <section className="mb-6">
           <h2 className="text-xl font-bold text-slate-100 mt-8 mb-3">{"Tier 1 vs Tier 2: The Numbers That Matter"}</h2>
           <p className="text-slate-300 leading-relaxed mb-3">{`Tier 1 (free and low-volume paid users) gives you 10,000 TPM and 500 RPM. Tier 2 (qualified users with Claude API history) bumps you to 50,000 TPM and 5,000 RPM. For indie builders, that's the difference between running one or two concurrent agent threads and running 10+ in parallel.`}</p>
           <p className="text-slate-300 leading-relaxed mb-3">{`TPM (tokens per minute) is your real bottleneck. A single claude-3-5-sonnet call averaging 2,000 output tokens eats 2,000 TPM. At Tier 1, that's only 5 concurrent requests. At Tier 2, you're at 25. RPM is rarely your limiting factor unless you're making many small, fast requests.`}</p>
 
         </section>
+
+        <DisplayAd slot="topic-mid" format="auto" className="my-8" />
+
         <section className="mb-6">
           <h2 className="text-xl font-bold text-slate-100 mt-8 mb-3">{"How to Request Tier 2 (and Actually Get It)"}</h2>
           <p className="text-slate-300 leading-relaxed mb-3">{`Anthropic reviews upgrade requests based on account age, API usage patterns, and intended use case. You need at least a few weeks of consistent API calls and a clear description of your production workload. Submit your request in the Anthropic console—don't just email support.`}</p>

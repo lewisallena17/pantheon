@@ -1,5 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import DisplayAd from '@/components/DisplayAd'
+import AmazonGeoSwap from '@/components/AmazonGeoSwap'
 
 export const metadata: Metadata = {
   title:       'Build an Autonomous Dev.to Article Writer with Claude',
@@ -16,6 +18,7 @@ export const metadata: Metadata = {
 export default function Topic() {
   return (
     <main className="min-h-screen bg-slate-950 px-4 py-10">
+      <AmazonGeoSwap />
       <article className="max-w-3xl mx-auto">
         <nav className="text-[10px] font-mono text-slate-500 mb-6">
           <Link href="/" className="hover:text-cyan-400">◈ pantheon</Link>
@@ -27,12 +30,18 @@ export default function Topic() {
 
         <p className="text-slate-300 leading-relaxed mb-8 text-lg">{`Building an autonomous Dev.to article writer means connecting Claude's reasoning to your publishing infrastructure—letting you generate, refine, and publish content without manual intervention.`}</p>
 
+
+        {/* Above-fold display ad — placeholder until NEXT_PUBLIC_ADSENSE_CLIENT_ID is set */}
+        <DisplayAd slot="topic-top" format="auto" className="my-6" />
         <section className="mb-6">
           <h2 className="text-xl font-bold text-slate-100 mt-8 mb-3">{"Why Claude + Dev.to API Is the Right Stack"}</h2>
           <p className="text-slate-300 leading-relaxed mb-3">{`Claude excels at sustained reasoning across long contexts, making it ideal for researching topics, drafting multi-section articles, and iterating on quality. The Dev.to API accepts markdown and handles formatting, so you're not fighting platform constraints.`}</p>
           <p className="text-slate-300 leading-relaxed mb-3">{`Unlike GPT-4, Claude's extended thinking capabilities let you trace the reasoning behind article structure decisions, which matters when you're automating content that represents your brand. You get transparency into what the model is actually doing.`}</p>
 
         </section>
+
+        <DisplayAd slot="topic-mid" format="auto" className="my-8" />
+
         <section className="mb-6">
           <h2 className="text-xl font-bold text-slate-100 mt-8 mb-3">{"Setting Up the Claude + Supabase Pipeline"}</h2>
           <p className="text-slate-300 leading-relaxed mb-3">{`Store article requests, drafts, and publication history in Supabase. Use a simple schema: requests table (topic, tone, target_audience, status), drafts table (content, version, created_at), and published table (dev_to_id, url, metrics).`}</p>

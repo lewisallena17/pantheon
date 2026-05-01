@@ -1,5 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import DisplayAd from '@/components/DisplayAd'
+import AmazonGeoSwap from '@/components/AmazonGeoSwap'
 
 export const metadata: Metadata = {
   title:       'Rate Limiting & Circuit Breakers for AI Agents',
@@ -16,6 +18,7 @@ export const metadata: Metadata = {
 export default function Topic() {
   return (
     <main className="min-h-screen bg-slate-950 px-4 py-10">
+      <AmazonGeoSwap />
       <article className="max-w-3xl mx-auto">
         <nav className="text-[10px] font-mono text-slate-500 mb-6">
           <Link href="/" className="hover:text-cyan-400">◈ pantheon</Link>
@@ -27,12 +30,18 @@ export default function Topic() {
 
         <p className="text-slate-300 leading-relaxed mb-8 text-lg">{`Without rate limiting and circuit breakers, a single API spike or downstream service failure will crash your entire AI agent system—learn the exact patterns to build resilience into Claude integrations before production.`}</p>
 
+
+        {/* Above-fold display ad — placeholder until NEXT_PUBLIC_ADSENSE_CLIENT_ID is set */}
+        <DisplayAd slot="topic-top" format="auto" className="my-6" />
         <section className="mb-6">
           <h2 className="text-xl font-bold text-slate-100 mt-8 mb-3">{"Why Your AI Agents Need Rate Limiting"}</h2>
           <p className="text-slate-300 leading-relaxed mb-3">{`Claude's API enforces rate limits (RPM and TPM), but that's just one layer. Your agent might spawn parallel requests, retry failures exponentially, or loop indefinitely on token limits. Without client-side rate limiting, you'll hit 429 errors, waste API credits, and degrade user experience.`}</p>
           <p className="text-slate-300 leading-relaxed mb-3">{`Rate limiting buys you time to queue requests intelligently, prioritize critical agent tasks, and observe actual usage patterns before hitting hard limits. It's the difference between graceful degradation and outages.`}</p>
 
         </section>
+
+        <DisplayAd slot="topic-mid" format="auto" className="my-8" />
+
         <section className="mb-6">
           <h2 className="text-xl font-bold text-slate-100 mt-8 mb-3">{"Implementing Rate Limiting in Next.js"}</h2>
           <p className="text-slate-300 leading-relaxed mb-3">{`Use a sliding window or token bucket approach. For Claude agents, track requests per user and per agent type separately. Store counters in Supabase or Redis; Supabase works well for indie scale.`}</p>

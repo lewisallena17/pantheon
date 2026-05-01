@@ -1,5 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import DisplayAd from '@/components/DisplayAd'
+import AmazonGeoSwap from '@/components/AmazonGeoSwap'
 
 export const metadata: Metadata = {
   title:       'Claude Citations for AI Agent Fact-Checking',
@@ -16,6 +18,7 @@ export const metadata: Metadata = {
 export default function Topic() {
   return (
     <main className="min-h-screen bg-slate-950 px-4 py-10">
+      <AmazonGeoSwap />
       <article className="max-w-3xl mx-auto">
         <nav className="text-[10px] font-mono text-slate-500 mb-6">
           <Link href="/" className="hover:text-cyan-400">◈ pantheon</Link>
@@ -27,12 +30,18 @@ export default function Topic() {
 
         <p className="text-slate-300 leading-relaxed mb-8 text-lg">{`Citations transform Claude from a conversational AI into a fact-checkable system—your agents can now point to exact sources, letting end-users verify claims and you build trustworthy products faster.`}</p>
 
+
+        {/* Above-fold display ad — placeholder until NEXT_PUBLIC_ADSENSE_CLIENT_ID is set */}
+        <DisplayAd slot="topic-top" format="auto" className="my-6" />
         <section className="mb-6">
           <h2 className="text-xl font-bold text-slate-100 mt-8 mb-3">{"Why Citations Matter for AI Agents"}</h2>
           <p className="text-slate-300 leading-relaxed mb-3">{`When you deploy Claude agents into production, users won't trust unsourced answers. Citations let your agent say 'I found this fact in document X, section Y' rather than just stating claims. This becomes critical for customer support bots, research assistants, and compliance-heavy workflows.`}</p>
           <p className="text-slate-300 leading-relaxed mb-3">{`Without citations, you're debugging hallucinations blind. With them, you can trace every claim back to its origin, making it trivial to catch when Claude pulls from the wrong knowledge base or misinterprets a document.`}</p>
 
         </section>
+
+        <DisplayAd slot="topic-mid" format="auto" className="my-8" />
+
         <section className="mb-6">
           <h2 className="text-xl font-bold text-slate-100 mt-8 mb-3">{"How Claude's Citation API Works"}</h2>
           <p className="text-slate-300 leading-relaxed mb-3">{`Claude accepts citations through the \`citations\` parameter in your prompt. You pass structured references—URLs, document IDs, page numbers—and Claude returns not just text but metadata pointing back to those sources. The model is trained to cite when it uses external knowledge.`}</p>

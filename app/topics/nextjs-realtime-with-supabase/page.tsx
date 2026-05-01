@@ -1,5 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import DisplayAd from '@/components/DisplayAd'
+import AmazonGeoSwap from '@/components/AmazonGeoSwap'
 
 export const metadata: Metadata = {
   title:       'Real-Time Features in Next.js with Supabase Realtime',
@@ -16,6 +18,7 @@ export const metadata: Metadata = {
 export default function Topic() {
   return (
     <main className="min-h-screen bg-slate-950 px-4 py-10">
+      <AmazonGeoSwap />
       <article className="max-w-3xl mx-auto">
         <nav className="text-[10px] font-mono text-slate-500 mb-6">
           <Link href="/" className="hover:text-cyan-400">◈ pantheon</Link>
@@ -27,12 +30,18 @@ export default function Topic() {
 
         <p className="text-slate-300 leading-relaxed mb-8 text-lg">{`Real-time features in Next.js with Supabase Realtime let you push database changes, user presence, and custom broadcasts to the client instantly—essential for AI agent systems where latency kills user experience.`}</p>
 
+
+        {/* Above-fold display ad — placeholder until NEXT_PUBLIC_ADSENSE_CLIENT_ID is set */}
+        <DisplayAd slot="topic-top" format="auto" className="my-6" />
         <section className="mb-6">
           <h2 className="text-xl font-bold text-slate-100 mt-8 mb-3">{"Why Real-Time Matters for AI Agent Systems"}</h2>
           <p className="text-slate-300 leading-relaxed mb-3">{`AI agents running in the background need to communicate status updates, task completions, and error states back to your frontend without polling. Polling adds lag, wastes database queries, and feels broken to users. Supabase Realtime solves this with PostgreSQL's built-in replication system.`}</p>
           <p className="text-slate-300 leading-relaxed mb-3">{`For indie developers building Claude-powered systems, real-time features compress the feedback loop: users see agent reasoning, token usage, and final outputs the moment they're available. This is the difference between a prototype and a product.`}</p>
 
         </section>
+
+        <DisplayAd slot="topic-mid" format="auto" className="my-8" />
+
         <section className="mb-6">
           <h2 className="text-xl font-bold text-slate-100 mt-8 mb-3">{"Setting Up Supabase Realtime in Next.js"}</h2>
           <p className="text-slate-300 leading-relaxed mb-3">{`Enable Realtime on your Supabase table, install the client library, and subscribe to database changes in a server component or hook. Supabase handles WebSocket connection pooling and reconnection logic for you.`}</p>
