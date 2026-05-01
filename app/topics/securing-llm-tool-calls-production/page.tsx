@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import DisplayAd from '@/components/DisplayAd'
+import KitCTA from '@/components/KitCTA'
 import AmazonGeoSwap from '@/components/AmazonGeoSwap'
 
 export const metadata: Metadata = {
@@ -31,6 +32,7 @@ export default function Topic() {
         <p className="text-slate-300 leading-relaxed mb-8 text-lg">{`Tool calls are where your LLM agent actually changes things—and that's exactly where security breaks down in production. This guide shows you how to validate, authorize, and log every tool execution so your AI system can't be exploited by malicious prompts or user manipulation.`}</p>
 
         {/* Above-fold display ad — renders placeholder until NEXT_PUBLIC_ADSENSE_CLIENT_ID is set */}
+        <KitCTA variant="banner" />
         <DisplayAd slot="topic-top" format="auto" className="my-6" />
 
         <section className="mb-6">
@@ -85,6 +87,8 @@ export default function Topic() {
 
         {/* Mid-article display ad */}
         <DisplayAd slot="topic-mid" format="auto" className="my-8" />
+
+        <KitCTA variant="inline" />
 
         <section className="mb-6">
           <h2 className="text-xl font-bold text-slate-100 mt-8 mb-3">Open-source implementation</h2>

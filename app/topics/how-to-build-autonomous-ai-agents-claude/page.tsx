@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import DisplayAd from '@/components/DisplayAd'
+import KitCTA from '@/components/KitCTA'
 import AmazonGeoSwap from '@/components/AmazonGeoSwap'
 
 export const metadata: Metadata = {
@@ -31,6 +32,7 @@ export default function Topic() {
         <p className="text-slate-300 leading-relaxed mb-8 text-lg">{`Building autonomous AI agents with Claude means creating systems that can reason about tasks, call external tools, and iterate toward solutions without constant human intervention—and this guide walks you through the exact architecture and code patterns that work.`}</p>
 
         {/* Above-fold display ad — renders placeholder until NEXT_PUBLIC_ADSENSE_CLIENT_ID is set */}
+        <KitCTA variant="banner" />
         <DisplayAd slot="topic-top" format="auto" className="my-6" />
 
         <section className="mb-6">
@@ -102,6 +104,8 @@ async function runAgent(task: string) {
 
         {/* Mid-article display ad */}
         <DisplayAd slot="topic-mid" format="auto" className="my-8" />
+
+        <KitCTA variant="inline" />
 
         <section className="mb-6">
           <h2 className="text-xl font-bold text-slate-100 mt-8 mb-3">Open-source implementation</h2>

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import DisplayAd from '@/components/DisplayAd'
+import KitCTA from '@/components/KitCTA'
 import AmazonGeoSwap from '@/components/AmazonGeoSwap'
 
 export const metadata: Metadata = {
@@ -32,6 +33,7 @@ export default function Topic() {
 
 
         {/* Above-fold display ad — placeholder until NEXT_PUBLIC_ADSENSE_CLIENT_ID is set */}
+        <KitCTA variant="banner" />
         <DisplayAd slot="topic-top" format="auto" className="my-6" />
         <section className="mb-6">
           <h2 className="text-xl font-bold text-slate-100 mt-8 mb-3">{"Why Pixel-Art Works for Agent Dashboards"}</h2>
@@ -42,6 +44,8 @@ export default function Topic() {
         </section>
 
         <DisplayAd slot="topic-mid" format="auto" className="my-8" />
+
+        <KitCTA variant="inline" />
 
         <section className="mb-6">
           <h2 className="text-xl font-bold text-slate-100 mt-8 mb-3">{"Component Patterns for Agent Monitoring"}</h2>
