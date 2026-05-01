@@ -72,7 +72,7 @@ export async function GET() {
   const activeGoals = (wisdom.roadmap?.goals ?? []) as Array<{ status?: string; title?: string }>
   const activeGoalTitle = activeGoals.find(g => g.status === 'active')?.title ?? null
 
-  return NextResponse.json({
+  const response = NextResponse.json({
     at:        new Date().toISOString(),
     latency:   Date.now() - start,
     god: god ? {
@@ -99,4 +99,11 @@ export async function GET() {
       byKind:   verifCounts,
     },
   })
+
+  // Edge-cache for 10s with 30s stale-while-revalidate so the second visitor
+  // gets a near-instant response and the underlying file/DB reads happen in
+  // the background. Snapshot data is by nature 30s-stale anyway (panels
+  // realtime-subscribe for fresh deltas).
+  response.headers.set('Cache-Control', 'public, s-maxage=10, stale-while-revalidate=30')
+  return response
 }
