@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import type { Todo } from '@/types/todos'
 
 interface Props {
@@ -72,6 +72,8 @@ export default function TaskTraceDrawer({ todo, onClose }: Props) {
           {todo.deadline && <div><span className="text-slate-600">deadline:</span> <span className="text-slate-300">{new Date(todo.deadline).toLocaleString()}</span></div>}
         </div>
 
+        {todo.status === 'failed' && <WhyDidThisFail todo={todo} />}
+
         {/* Timeline */}
         <div className="px-4 py-3">
           <div className="text-[10px] font-mono tracking-[0.2em] text-slate-500 uppercase mb-3">◇ Timeline</div>
@@ -109,6 +111,67 @@ export default function TaskTraceDrawer({ todo, onClose }: Props) {
           id: {todo.id}
         </footer>
       </aside>
+    </div>
+  )
+}
+
+/**
+ * Asks God to explain a failure in 2-3 sentences using the existing
+ * /api/god-chat endpoint. Cached per-task in localStorage so re-opening
+ * the drawer doesn't re-spend tokens on the same explanation.
+ */
+function WhyDidThisFail({ todo }: { todo: Todo }) {
+  const [explanation, setExplanation] = useState<string | null>(null)
+  const [loading, setLoading]         = useState(false)
+  const [error, setError]             = useState<string | null>(null)
+  const cacheKey = `why-failed:${todo.id}`
+
+  useEffect(() => {
+    try {
+      const cached = localStorage.getItem(cacheKey)
+      if (cached) setExplanation(cached)
+    } catch {}
+  }, [cacheKey])
+
+  async function ask() {
+    setLoading(true)
+    setError(null)
+    try {
+      const lastComments = todo.comments.slice(-3).map(c => `[${c.agent}] ${c.text}`).join('\n')
+      const question = `In 2-3 short sentences, explain why this task probably failed and what to try next. Task title: "${todo.title}". Assigned to: ${todo.assigned_agent ?? 'unknown'}. Retries: ${todo.retry_count}. Recent comments:\n${lastComments || '(none)'}`
+      const res = await fetch('/api/god-chat', {
+        method:  'POST',
+        headers: { 'content-type': 'application/json' },
+        body:    JSON.stringify({ question }),
+      })
+      const json = await res.json() as { reply?: string; error?: string }
+      if (!res.ok) throw new Error(json.error ?? `HTTP ${res.status}`)
+      const reply = json.reply ?? '(no reply)'
+      setExplanation(reply)
+      try { localStorage.setItem(cacheKey, reply) } catch {}
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'failed')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="px-4 py-3 border-b border-red-900/30 bg-red-950/10">
+      <div className="text-[10px] font-mono tracking-[0.2em] text-red-400 uppercase mb-2">⚠ Why did this fail?</div>
+      {explanation ? (
+        <div className="text-[11px] font-mono text-slate-300 leading-relaxed whitespace-pre-wrap">{explanation}</div>
+      ) : error ? (
+        <div className="text-[11px] font-mono text-red-400">Couldn't ask God: {error}</div>
+      ) : (
+        <button
+          onClick={ask}
+          disabled={loading}
+          className="text-[11px] font-mono text-red-300 hover:text-red-200 tracking-wider uppercase border border-red-800/40 rounded px-2 py-1 disabled:opacity-50"
+        >
+          {loading ? 'thinking…' : '◉ ask god to explain'}
+        </button>
+      )}
     </div>
   )
 }

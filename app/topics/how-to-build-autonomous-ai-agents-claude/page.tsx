@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import DisplayAd from '@/components/DisplayAd'
 import KitCTA from '@/components/KitCTA'
+import NewsletterSignup from '@/components/NewsletterSignup'
 import AmazonGeoSwap from '@/components/AmazonGeoSwap'
 
 export const metadata: Metadata = {
@@ -106,6 +107,8 @@ async function runAgent(task: string) {
         <DisplayAd slot="topic-mid" format="auto" className="my-8" />
 
         <KitCTA variant="inline" />
+
+        <NewsletterSignup source={`topic:how-to-build-autonomous-ai-agents-claude`} />
 
         <section className="mb-6">
           <h2 className="text-xl font-bold text-slate-100 mt-8 mb-3">Open-source implementation</h2>

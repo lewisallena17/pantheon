@@ -47,6 +47,8 @@ import SystemNews from './SystemNews'
 import ForYouFeed from './ForYouFeed'
 import MetricOverlayChart from './MetricOverlayChart'
 import InvariantChip from './InvariantChip'
+import ErrorBoundary from './ErrorBoundary'
+import KeyboardShortcutsModal from './KeyboardShortcutsModal'
 
 // ── Dynamic imports — only loaded when their tab is opened. Cuts initial JS by ~70%.
 // Direct form (no generic wrapper) so next/dynamic preserves each component's prop types.
@@ -212,7 +214,9 @@ export default function DashboardShell({ initialTodos }: Props) {
       <VictoryFlash todos={todos} />
       <CommandPalette todos={todos} />
 
-      <InvariantChip />
+      <KeyboardShortcutsModal />
+
+      <ErrorBoundary label="invariants"><InvariantChip /></ErrorBoundary>
 
       <DashboardHeader stats={liveStats} todos={todos} />
 
@@ -227,7 +231,7 @@ export default function DashboardShell({ initialTodos }: Props) {
 
       {/* ── OVERVIEW TAB — three zones: top (always), middle (collapsed), bottom ── */}
       {tab === 'overview' && (
-        <div className={gap}>
+        <ErrorBoundary label="overview tab"><div className={gap}>
           {/* Global time window picker — respected by panels that opt in */}
           <div className="flex items-center justify-end gap-2 px-1">
             <span className="text-[9px] font-mono text-slate-700 tracking-widest uppercase">window:</span>
@@ -312,12 +316,12 @@ export default function DashboardShell({ initialTodos }: Props) {
               <LiveFeed />
             </div>
           </Collapsible>
-        </div>
+        </div></ErrorBoundary>
       )}
 
       {/* ── TASKS TAB ────────────────────────────────────────────────── */}
       {tab === 'tasks' && (
-        <div className={gap}>
+        <ErrorBoundary label="tasks tab"><div className={gap}>
           <RecentTasksStrip todos={todos} onPick={setSelectedTodo} />
 
           {/* ── Failed Fast-Lane: pinned above everything on Tasks tab too ── */}
@@ -347,12 +351,12 @@ export default function DashboardShell({ initialTodos }: Props) {
               onLogEntry={addLog}
             />
           </div>
-        </div>
+        </div></ErrorBoundary>
       )}
 
       {/* ── AGENTS TAB ───────────────────────────────────────────────── */}
       {tab === 'agents' && (
-        <div className={gap}>
+        <ErrorBoundary label="agents tab"><div className={gap}>
           <div id={SECTION_IDS.controls}>
             <AgentControlPanel />
           </div>
@@ -401,12 +405,12 @@ export default function DashboardShell({ initialTodos }: Props) {
               <BattleLog entries={log} />
             </div>
           </Collapsible>
-        </div>
+        </div></ErrorBoundary>
       )}
 
       {/* ── REVENUE TAB ──────────────────────────────────────────────── */}
       {tab === 'revenue' && (
-        <div className={gap}>
+        <ErrorBoundary label="revenue tab"><div className={gap}>
           <PassiveIncomeStatus />
           <RevenueChart />
           <MarketIntel />
@@ -421,12 +425,12 @@ export default function DashboardShell({ initialTodos }: Props) {
           <Collapsible id="revenue-newsletter" title="Newsletter Composer" defaultOpen={false}>
             <NewsletterComposer />
           </Collapsible>
-        </div>
+        </div></ErrorBoundary>
       )}
 
       {/* ── CODE TAB ─────────────────────────────────────────────────── */}
       {tab === 'code' && (
-        <div className={gap}>
+        <ErrorBoundary label="code tab"><div className={gap}>
           <CIStatus />
 
           <LatencyDistribution todos={todos} />
@@ -444,7 +448,7 @@ export default function DashboardShell({ initialTodos }: Props) {
           </Collapsible>
 
           <VerificationPanel />
-        </div>
+        </div></ErrorBoundary>
       )}
 
       {/* ── Drawers (portals) ──────────────────────────────────────────── */}
