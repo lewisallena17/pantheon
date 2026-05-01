@@ -44,19 +44,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <head>
-        {/* AdSense verification requires a LITERAL <script> tag in <head>.
-            Next.js's <Script> component renders a deferred loader instead,
-            which the crawler doesn't recognise as AdSense integration.
-            Emit the real tag here so Google sees it in the initial HTML. */}
+        {/* Account-ownership verification meta tag is OK on every page —
+            it doesn't load ads. The actual adsbygoogle.js loader has been
+            scoped to app/topics/layout.tsx so AdSense only runs on pages
+            with substantial article content (per Google's policy on
+            "ads on navigation/behavioral screens"). */}
         {adSenseClient && (
-          <>
-            <script
-              async
-              src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${adSenseClient}`}
-              crossOrigin="anonymous"
-            />
-            <meta name="google-adsense-account" content={adSenseClient} />
-          </>
+          <meta name="google-adsense-account" content={adSenseClient} />
         )}
       </head>
       <body className="min-h-screen antialiased">
