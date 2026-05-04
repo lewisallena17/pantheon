@@ -21,6 +21,7 @@ const path = require('node:path')
 
 const DEBUG_DIR = path.join(process.cwd(), 'debug')
 const HANDLER_SELECTION_LOG = path.join(DEBUG_DIR, 'handler-selection.log')
+const CODE_PATH_LOG = path.join(DEBUG_DIR, 'code-path.log')
 
 /**
  * Handler validation result
@@ -59,6 +60,37 @@ async function ensureDebugDir() {
   } catch (err) {
     console.error(
       '[router] Failed to create debug dir:',
+      err instanceof Error ? err.message : String(err)
+    )
+  }
+}
+
+/**
+ * Log code path execution to disk
+ * Records which execution path was taken in validateAndRoute
+ * 
+ * @param {string} requestId - Unique request identifier
+ * @param {string} codePath - Name of the code path (e.g., 'no_valid_handlers', 'single_handler', 'multiple_handlers')
+ * @param {Object} context - Additional context for the path
+ */
+async function logCodePath(requestId, codePath, context = {}) {
+  try {
+    await ensureDebugDir()
+
+    const logLine = JSON.stringify({
+      timestamp: new Date().toISOString(),
+      request_id: requestId,
+      code_path: codePath,
+      context: context,
+    })
+
+    // Fire-and-forget: append to log without awaiting
+    fs.appendFile(CODE_PATH_LOG, logLine + '\n').catch((err) => {
+      console.error('[router] Failed to write code path log:', err.message)
+    })
+  } catch (err) {
+    console.error(
+      '[router] Error in logCodePath:',
       err instanceof Error ? err.message : String(err)
     )
   }
@@ -212,6 +244,15 @@ async function validateAndRoute(query, handlers) {
     // No valid handlers
     selectedHandler = null
     decisionReason = 'no valid handlers found for this query'
+    
+    // Log this code path execution
+    await logCodePath(requestId, 'no_valid_handlers', {
+      route: route,
+      method: query.method,
+      path: query.path,
+      available_handlers: handlerEntries.map((e) => e[0]),
+    })
+    
     console.error(
       `[router] ERROR: ${requestId} | route=${route} | method=${query.method} | ` +
       `No valid handlers. Available: ${handlerEntries.map((e) => e[0]).join(', ')}`
@@ -220,6 +261,14 @@ async function validateAndRoute(query, handlers) {
     // Single valid handler - deterministic selection
     selectedHandler = validHandlers[0]
     decisionReason = 'single valid handler matched'
+    
+    // Log this code path execution
+    await logCodePath(requestId, 'single_valid_handler', {
+      route: route,
+      method: query.method,
+      path: query.path,
+      selected_handler: selectedHandler,
+    })
   } else {
     // **DECISION POINT: Multiple valid handlers found**
     decisionLog.multipleValidHandlers = true
@@ -227,6 +276,15 @@ async function validateAndRoute(query, handlers) {
     // Select first valid handler as fallback
     selectedHandler = validHandlers[0]
     decisionReason = `multiple valid handlers found (${validHandlers.join(', ')}); selected first`
+
+    // Log this code path execution
+    await logCodePath(requestId, 'multiple_valid_handlers', {
+      route: route,
+      method: query.method,
+      path: query.path,
+      valid_handlers: validHandlers,
+      selected_handler: selectedHandler,
+    })
 
     console.warn(
       `[router] DECISION POINT: Multiple valid handlers detected for ${requestId}`
