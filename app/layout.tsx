@@ -1,6 +1,13 @@
 import type { Metadata } from 'next'
 import Script from 'next/script'
 import './globals.css'
+import { initPronounDetector } from '@/lib/pronoun-detector'
+
+// Initialize pronoun detector on server startup to log 'I' or 'me' mentions
+// in the next 5 console.log outputs
+if (typeof window === 'undefined') {
+  initPronounDetector()
+}
 
 export const metadata: Metadata = {
   title: 'TASK//MATRIX',

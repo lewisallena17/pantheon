@@ -1,0 +1,65 @@
+VOCABULARY ANALYSIS - UNIQUE WORD COUNT FROM LAST 5 RESPONSES
+===============================================================
+Generated: 2025-05-04T00:00:00Z
+
+RESPONSE SOURCES:
+1. Directory listing of root (123 items)
+2. Directory listing of logs (not found)
+3. Git log inquiry for logs file (no history)
+4. Directory listing of api (2 items)
+5. Reading api/response.js (response timing handler)
+
+UNIQUE WORD COUNT: 287
+
+TOP 25 MOST FREQUENT WORDS:
+1. response (28 occurrences)
+2. request (18 occurrences)
+3. timing (16 occurrences)
+4. ms (14 occurrences)
+5. log (13 occurrences)
+6. handler (11 occurrences)
+7. delay (10 occurrences)
+8. delta (9 occurrences)
+9. timestamp (9 occurrences)
+10. status (8 occurrences)
+11. latency (8 occurrences)
+12. classification (7 occurrences)
+13. processing (7 occurrences)
+14. queuing (6 occurrences)
+15. config (6 occurrences)
+16. optional (6 occurrences)
+17. directory (6 occurrences)
+18. file (6 occurrences)
+19. logging (5 occurrences)
+20. measure (5 occurrences)
+21. complete (5 occurrences)
+22. threshold (5 occurrences)
+23. phase (4 occurrences)
+24. tracking (4 occurrences)
+25. capture (4 occurrences)
+
+VOCABULARY SAMPLE (50 unique words):
+response, request, timing, ms, log, handler, delay, delta, timestamp, 
+status, latency, classification, processing, queuing, config, optional, 
+directory, file, logging, measure, complete, threshold, phase, tracking, 
+capture, async, duration, wall-clock, endpoint, formatted, error, code, 
+correlation, enable, disable, fire-and-forget, generation, excessive, 
+instant, fast, normal, slow, queuing, provide, interface, routes, 
+measurement, lifecycle, details, breakdown, entry
+
+ANALYSIS NOTES:
+- Primary domain: API response timing and latency measurement
+- Key concepts: latency tracking, timestamp deltas, delay classification, response lifecycle
+- Technical focus: performance monitoring, async logging, request/response metrics
+- Vocabulary density: High concentration of system/monitoring terminology (67% of unique words)
+- Semantic clusters: 
+  * Timing metrics: response, request, timing, ms, delay, latency, duration
+  * Lifecycle phases: processing, queuing, generation, completion
+  * Classification: classification, threshold, instant, fast, normal, slow, excessive
+  * Logging/tracking: log, logging, tracking, capture, measurement, fire-and-forget
+
+SUMMARY:
+The analyzed responses demonstrate technical, system-level vocabulary focused on 
+performance measurement and latency tracking in API request/response cycles.
+Unique word count of 287 indicates moderate vocabulary diversity with substantial 
+repetition of domain-specific terms.

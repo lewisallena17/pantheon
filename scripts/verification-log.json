@@ -336,6 +336,338 @@
         "summary": ""
       },
       "fullSha": "2b683ce63d5534bf0cbf833e2fabc092dfcdec62"
+    },
+    {
+      "at": "2026-05-04T20:01:02.176Z",
+      "kind": "seo-page",
+      "ok": true,
+      "context": {
+        "slug": "nextjs-14-supabase-multi-agent-systems",
+        "h1": "Next.js 14 + Supabase for Multi-Agent AI Systems"
+      },
+      "bytes": 11856
+    },
+    {
+      "at": "2026-05-04T20:01:14.608Z",
+      "kind": "seo-page",
+      "ok": true,
+      "context": {
+        "slug": "nextjs-14-supabase-multi-agent-systems",
+        "lang": "es"
+      },
+      "bytes": 12448
+    },
+    {
+      "at": "2026-05-04T20:01:28.251Z",
+      "kind": "seo-page",
+      "ok": true,
+      "context": {
+        "slug": "nextjs-14-supabase-multi-agent-systems",
+        "lang": "de"
+      },
+      "bytes": 12430
+    },
+    {
+      "at": "2026-05-04T20:01:41.337Z",
+      "kind": "seo-page",
+      "ok": true,
+      "context": {
+        "slug": "nextjs-14-supabase-multi-agent-systems",
+        "lang": "fr"
+      },
+      "bytes": 12685
+    },
+    {
+      "at": "2026-05-04T20:01:55.241Z",
+      "kind": "seo-page",
+      "ok": true,
+      "context": {
+        "slug": "claude-extended-thinking-agent-reasoning",
+        "h1": "Claude Extended Thinking for Agent Reasoning"
+      },
+      "bytes": 10887
+    },
+    {
+      "at": "2026-05-04T20:02:05.001Z",
+      "kind": "seo-page",
+      "ok": true,
+      "context": {
+        "slug": "claude-extended-thinking-agent-reasoning",
+        "lang": "es"
+      },
+      "bytes": 11509
+    },
+    {
+      "at": "2026-05-04T20:02:16.397Z",
+      "kind": "seo-page",
+      "ok": true,
+      "context": {
+        "slug": "claude-extended-thinking-agent-reasoning",
+        "lang": "de"
+      },
+      "bytes": 11393
+    },
+    {
+      "at": "2026-05-04T20:02:25.977Z",
+      "kind": "seo-page",
+      "ok": true,
+      "context": {
+        "slug": "claude-extended-thinking-agent-reasoning",
+        "lang": "fr"
+      },
+      "bytes": 11735
+    },
+    {
+      "at": "2026-05-04T20:02:44.902Z",
+      "kind": "seo-page",
+      "ok": true,
+      "context": {
+        "slug": "claude-context-window-200k-management",
+        "h1": "Managing Claude's 200k Context Window at Scale"
+      },
+      "bytes": 11656
+    },
+    {
+      "at": "2026-05-04T20:02:57.679Z",
+      "kind": "seo-page",
+      "ok": true,
+      "context": {
+        "slug": "claude-context-window-200k-management",
+        "lang": "es"
+      },
+      "bytes": 12438
+    },
+    {
+      "at": "2026-05-04T20:03:13.422Z",
+      "kind": "seo-page",
+      "ok": true,
+      "context": {
+        "slug": "claude-context-window-200k-management",
+        "lang": "de"
+      },
+      "bytes": 12481
+    },
+    {
+      "at": "2026-05-04T20:03:26.968Z",
+      "kind": "seo-page",
+      "ok": true,
+      "context": {
+        "slug": "claude-context-window-200k-management",
+        "lang": "fr"
+      },
+      "bytes": 12779
+    },
+    {
+      "at": "2026-05-04T20:07:27.572Z",
+      "kind": "git-commit",
+      "ok": true,
+      "context": {
+        "sha": "bc201bb",
+        "cycle": 700,
+        "source": "agent",
+        "summary": "Made 2 targeted, surgical improvements to reduce agent failu"
+      },
+      "fullSha": "bc201bbd2de07e43f500b05effb3ffb43c946098"
+    },
+    {
+      "at": "2026-05-04T20:36:57.864Z",
+      "kind": "seo-page",
+      "ok": true,
+      "context": {
+        "slug": "command-palette-ctrl-k-dashboard",
+        "h1": "Adding a Command Palette (Ctrl+K) to Your Dashboard"
+      },
+      "bytes": 10546
+    },
+    {
+      "at": "2026-05-04T20:37:07.405Z",
+      "kind": "seo-page",
+      "ok": true,
+      "context": {
+        "slug": "command-palette-ctrl-k-dashboard",
+        "lang": "es"
+      },
+      "bytes": 11183
+    },
+    {
+      "at": "2026-05-04T20:37:18.538Z",
+      "kind": "seo-page",
+      "ok": true,
+      "context": {
+        "slug": "command-palette-ctrl-k-dashboard",
+        "lang": "de"
+      },
+      "bytes": 11240
+    },
+    {
+      "at": "2026-05-04T20:37:29.158Z",
+      "kind": "seo-page",
+      "ok": true,
+      "context": {
+        "slug": "command-palette-ctrl-k-dashboard",
+        "lang": "fr"
+      },
+      "bytes": 11781
+    },
+    {
+      "at": "2026-05-04T20:37:45.442Z",
+      "kind": "seo-page",
+      "ok": true,
+      "context": {
+        "slug": "ai-agent-self-directed-goals",
+        "h1": "Giving AI Agents Self-Directed Goals"
+      },
+      "bytes": 12074
+    },
+    {
+      "at": "2026-05-04T20:37:59.024Z",
+      "kind": "seo-page",
+      "ok": true,
+      "context": {
+        "slug": "ai-agent-self-directed-goals",
+        "lang": "es"
+      },
+      "bytes": 12933
+    },
+    {
+      "at": "2026-05-04T20:38:19.134Z",
+      "kind": "seo-page",
+      "ok": true,
+      "context": {
+        "slug": "ai-agent-self-directed-goals",
+        "lang": "de"
+      },
+      "bytes": 13130
+    },
+    {
+      "at": "2026-05-04T20:38:34.490Z",
+      "kind": "seo-page",
+      "ok": true,
+      "context": {
+        "slug": "ai-agent-self-directed-goals",
+        "lang": "fr"
+      },
+      "bytes": 13258
+    },
+    {
+      "at": "2026-05-04T20:38:47.320Z",
+      "kind": "seo-page",
+      "ok": true,
+      "context": {
+        "slug": "ai-agent-memory-jaccard-dedup",
+        "h1": "AI Agent Memory — Dedup Lessons with Jaccard Similarity"
+      },
+      "bytes": 10169
+    },
+    {
+      "at": "2026-05-04T20:38:56.716Z",
+      "kind": "seo-page",
+      "ok": true,
+      "context": {
+        "slug": "ai-agent-memory-jaccard-dedup",
+        "lang": "es"
+      },
+      "bytes": 10712
+    },
+    {
+      "at": "2026-05-04T20:39:16.735Z",
+      "kind": "seo-page",
+      "ok": true,
+      "context": {
+        "slug": "ai-agent-memory-jaccard-dedup",
+        "lang": "fr"
+      },
+      "bytes": 11116
+    },
+    {
+      "at": "2026-05-04T21:09:57.709Z",
+      "kind": "seo-page",
+      "ok": true,
+      "context": {
+        "slug": "supabase-edge-functions-ai-agents",
+        "h1": "Supabase Edge Functions for AI Agent Webhooks"
+      },
+      "bytes": 11074
+    },
+    {
+      "at": "2026-05-04T21:10:07.932Z",
+      "kind": "seo-page",
+      "ok": true,
+      "context": {
+        "slug": "supabase-edge-functions-ai-agents",
+        "lang": "es"
+      },
+      "bytes": 12010
+    },
+    {
+      "at": "2026-05-04T21:10:18.718Z",
+      "kind": "seo-page",
+      "ok": true,
+      "context": {
+        "slug": "supabase-edge-functions-ai-agents",
+        "lang": "de"
+      },
+      "bytes": 11569
+    },
+    {
+      "at": "2026-05-04T21:10:29.871Z",
+      "kind": "seo-page",
+      "ok": true,
+      "context": {
+        "slug": "supabase-edge-functions-ai-agents",
+        "lang": "fr"
+      },
+      "bytes": 12115
+    },
+    {
+      "at": "2026-05-04T21:10:45.886Z",
+      "kind": "seo-page",
+      "ok": true,
+      "context": {
+        "slug": "ai-agent-writes-own-code-auto-revert",
+        "h1": "AI Agents That Edit Their Own Code Safely"
+      },
+      "bytes": 11763
+    },
+    {
+      "at": "2026-05-04T21:10:59.545Z",
+      "kind": "seo-page",
+      "ok": true,
+      "context": {
+        "slug": "ai-agent-writes-own-code-auto-revert",
+        "lang": "es"
+      },
+      "bytes": 12623
+    },
+    {
+      "at": "2026-05-04T21:11:13.968Z",
+      "kind": "seo-page",
+      "ok": true,
+      "context": {
+        "slug": "ai-agent-writes-own-code-auto-revert",
+        "lang": "de"
+      },
+      "bytes": 12715
+    },
+    {
+      "at": "2026-05-04T21:11:26.755Z",
+      "kind": "seo-page",
+      "ok": true,
+      "context": {
+        "slug": "ai-agent-writes-own-code-auto-revert",
+        "lang": "fr"
+      },
+      "bytes": 12888
+    },
+    {
+      "at": "2026-05-04T21:11:41.884Z",
+      "kind": "seo-page",
+      "ok": true,
+      "context": {
+        "slug": "supabase-service-role-vs-anon-key",
+        "h1": "When to Use Supabase Service Role vs Anon Key"
+      },
+      "bytes": 11078
     }
   ]
 }
