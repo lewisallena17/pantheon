@@ -17,6 +17,8 @@
  *   "Never skip checkpoint idempotency when parallelizing tasks."
  *   "Logging at every layer reveals hidden bottlenecks instantly."
  *   "Don't optimize without granular visibility into actual behavior."
+ *   "Token-cap aborts logged as 'succeeded' corrupt the reliability model silently."
+ *   "Pre-validate outcome text at boundaries — partial completion ≠ success."
  */
 
 // ── Idempotent claim ───────────────────────────────────────────────────────
@@ -183,4 +185,98 @@ export async function assertTaskConsistency(supabase, taskId, expectedHash) {
   } catch (e) {
     return { consistent: false, reason: `exception: ${e.message?.slice(0, 80)}` }
   }
+}
+
+// ── Outcome classifier — catches silent partial completions ────────────────
+//
+// ROOT CAUSE (cycles 390–700): Agents hitting the token-cap mid-run still
+// reach the "mark completed" code path.  Their result text contains a
+// telltale phrase like "Pre-call gate: projected input ~117k tokens would
+// exceed cap. Wrapping up with partial progress." — but the caller records
+// this as a clean 'completed', poisoning:
+//   1. Pool reliability counters (inflated success rate)
+//   2. Episodic memory ("X succeeded — partial progress" is noise, not signal)
+//   3. Curriculum tier scores (pools stay 'journeyman' when they should drop)
+//
+// Fix: call classifyOutcome(resultText) before recording any terminal status.
+// Returns 'completed' | 'partial' | 'failed'.
+// Callers MUST treat 'partial' as a non-success for reliability tracking,
+// and SHOULD mark the DB row as 'failed' (or a new 'partial' status if the
+// schema supports it) rather than 'completed'.
+
+/** Phrases that betray a token-cap or cost-cap abort mid-task */
+const PARTIAL_ABORT_SIGNATURES = [
+  /pre.?call gate.*?exceed cap/i,
+  /projected input.*?token.*?exceed/i,
+  /wrapping up with partial progress/i,
+  /cost cap hit.*?stopping/i,
+  /token budget.*?exceeded.*?stopping/i,
+  /context window.*?limit.*?stopping/i,
+  /output truncated.*?token/i,
+  /stopping.*?token.*?limit/i,
+  /stopping.*?cost.*?cap/i,
+  /partial progress.*?token/i,
+  /hit.*?token.*?cap.*?wrap/i,
+]
+
+/** Phrases that signal a clean, intentional failure (not a partial abort) */
+const EXPLICIT_FAILURE_SIGNATURES = [
+  /cannot complete/i,
+  /task is not possible/i,
+  /no queryable table/i,
+  /unmeasurable/i,
+  /rejected pre.?flight/i,
+]
+
+/**
+ * Classify the terminal outcome of a task from its result text.
+ *
+ * @param {string} resultText  — the final text returned by the agent
+ * @returns {'completed' | 'partial' | 'failed'}
+ *
+ * Usage in ruflo-runner (at every point where status is set to 'completed'):
+ *
+ *   import { classifyOutcome } from './lib-checkpoint.mjs'
+ *   const outcome = classifyOutcome(finalText)
+ *   if (outcome !== 'completed') {
+ *     console.warn(`[CHECKPOINT] ⚠ task ${taskId} outcome=${outcome} — reclassifying as failed`)
+ *     // mark DB as 'failed', record pool failure, skip positive memory entry
+ *   }
+ */
+export function classifyOutcome(resultText) {
+  if (!resultText || typeof resultText !== 'string') return 'failed'
+  const text = resultText.slice(0, 2000) // only scan the head; aborts appear early
+
+  if (PARTIAL_ABORT_SIGNATURES.some(rx => rx.test(text))) {
+    console.warn(`[CHECKPOINT] ⚠ classifyOutcome → 'partial' (token/cost abort detected in result)`)
+    return 'partial'
+  }
+  if (EXPLICIT_FAILURE_SIGNATURES.some(rx => rx.test(text))) {
+    return 'failed'
+  }
+  return 'completed'
+}
+
+/**
+ * Convenience: wraps classifyOutcome and returns the DB-safe terminal status
+ * and whether to count this as a pool success for the reliability tracker.
+ *
+ * @param {string} resultText
+ * @param {string} [agentName]  — for logging
+ * @param {string} [taskId]     — for logging
+ * @returns {{ dbStatus: 'completed'|'failed', poolOutcome: 'completed'|'failed', isPartial: boolean }}
+ */
+export function resolveTerminalStatus(resultText, agentName = '?', taskId = '?') {
+  const outcome = classifyOutcome(resultText)
+  if (outcome === 'partial') {
+    console.warn(
+      `[CHECKPOINT] ✗ partial-completion reclassified as FAILED` +
+      ` — agent=${agentName} task=${taskId.slice(0, 8)}`
+    )
+    return { dbStatus: 'failed', poolOutcome: 'failed', isPartial: true }
+  }
+  if (outcome === 'failed') {
+    return { dbStatus: 'failed', poolOutcome: 'failed', isPartial: false }
+  }
+  return { dbStatus: 'completed', poolOutcome: 'completed', isPartial: false }
 }
