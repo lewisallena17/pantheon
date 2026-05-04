@@ -668,6 +668,258 @@
         "h1": "When to Use Supabase Service Role vs Anon Key"
       },
       "bytes": 11078
+    },
+    {
+      "at": "2026-05-04T21:42:59.816Z",
+      "kind": "seo-page",
+      "ok": true,
+      "context": {
+        "slug": "nextjs-14-app-router-ai-dashboard",
+        "h1": "Building an AI Dashboard with Next.js 14 App Router"
+      },
+      "bytes": 11282
+    },
+    {
+      "at": "2026-05-04T21:43:10.199Z",
+      "kind": "seo-page",
+      "ok": true,
+      "context": {
+        "slug": "nextjs-14-app-router-ai-dashboard",
+        "lang": "es"
+      },
+      "bytes": 11995
+    },
+    {
+      "at": "2026-05-04T21:43:21.905Z",
+      "kind": "seo-page",
+      "ok": true,
+      "context": {
+        "slug": "nextjs-14-app-router-ai-dashboard",
+        "lang": "de"
+      },
+      "bytes": 11866
+    },
+    {
+      "at": "2026-05-04T21:43:33.110Z",
+      "kind": "seo-page",
+      "ok": true,
+      "context": {
+        "slug": "nextjs-14-app-router-ai-dashboard",
+        "lang": "fr"
+      },
+      "bytes": 12208
+    },
+    {
+      "at": "2026-05-04T21:43:47.319Z",
+      "kind": "seo-page",
+      "ok": true,
+      "context": {
+        "slug": "curiosity-driven-agent-exploration",
+        "h1": "Curiosity-Driven Exploration in AI Agents"
+      },
+      "bytes": 11247
+    },
+    {
+      "at": "2026-05-04T21:43:57.856Z",
+      "kind": "seo-page",
+      "ok": true,
+      "context": {
+        "slug": "curiosity-driven-agent-exploration",
+        "lang": "es"
+      },
+      "bytes": 11951
+    },
+    {
+      "at": "2026-05-04T21:44:10.426Z",
+      "kind": "seo-page",
+      "ok": true,
+      "context": {
+        "slug": "curiosity-driven-agent-exploration",
+        "lang": "de"
+      },
+      "bytes": 11845
+    },
+    {
+      "at": "2026-05-04T21:44:22.688Z",
+      "kind": "seo-page",
+      "ok": true,
+      "context": {
+        "slug": "curiosity-driven-agent-exploration",
+        "lang": "fr"
+      },
+      "bytes": 12252
+    },
+    {
+      "at": "2026-05-04T21:44:39.981Z",
+      "kind": "seo-page",
+      "ok": true,
+      "context": {
+        "slug": "claude-tool-use-best-practices",
+        "h1": "Claude Tool Use — Production Best Practices"
+      },
+      "bytes": 11125
+    },
+    {
+      "at": "2026-05-04T21:44:51.330Z",
+      "kind": "seo-page",
+      "ok": true,
+      "context": {
+        "slug": "claude-tool-use-best-practices",
+        "lang": "es"
+      },
+      "bytes": 11944
+    },
+    {
+      "at": "2026-05-04T21:45:04.503Z",
+      "kind": "seo-page",
+      "ok": true,
+      "context": {
+        "slug": "claude-tool-use-best-practices",
+        "lang": "de"
+      },
+      "bytes": 12024
+    },
+    {
+      "at": "2026-05-04T21:45:16.480Z",
+      "kind": "seo-page",
+      "ok": true,
+      "context": {
+        "slug": "claude-tool-use-best-practices",
+        "lang": "fr"
+      },
+      "bytes": 12311
+    },
+    {
+      "at": "2026-05-04T21:49:30.279Z",
+      "kind": "git-commit",
+      "ok": true,
+      "context": {
+        "sha": "8707f6c",
+        "cycle": 730,
+        "source": "agent",
+        "summary": ""
+      },
+      "fullSha": "8707f6c66ec0a7cf7bf88383e5717137a9b3604e"
+    },
+    {
+      "at": "2026-05-04T22:18:59.210Z",
+      "kind": "seo-page",
+      "ok": true,
+      "context": {
+        "slug": "ai-agent-observability-langfuse-logfire",
+        "h1": "AI Agent Observability with Langfuse and Logfire"
+      },
+      "bytes": 10994
+    },
+    {
+      "at": "2026-05-04T22:19:11.492Z",
+      "kind": "seo-page",
+      "ok": true,
+      "context": {
+        "slug": "ai-agent-observability-langfuse-logfire",
+        "lang": "es"
+      },
+      "bytes": 11714
+    },
+    {
+      "at": "2026-05-04T22:19:24.820Z",
+      "kind": "seo-page",
+      "ok": true,
+      "context": {
+        "slug": "ai-agent-observability-langfuse-logfire",
+        "lang": "de"
+      },
+      "bytes": 11807
+    },
+    {
+      "at": "2026-05-04T22:19:37.308Z",
+      "kind": "seo-page",
+      "ok": true,
+      "context": {
+        "slug": "ai-agent-observability-langfuse-logfire",
+        "lang": "fr"
+      },
+      "bytes": 11943
+    },
+    {
+      "at": "2026-05-04T22:19:51.872Z",
+      "kind": "seo-page",
+      "ok": true,
+      "context": {
+        "slug": "supabase-realtime-subscriptions-nextjs",
+        "h1": "Supabase Realtime Subscriptions in Next.js App Router"
+      },
+      "bytes": 11248
+    },
+    {
+      "at": "2026-05-04T22:20:02.738Z",
+      "kind": "seo-page",
+      "ok": true,
+      "context": {
+        "slug": "supabase-realtime-subscriptions-nextjs",
+        "lang": "es"
+      },
+      "bytes": 11924
+    },
+    {
+      "at": "2026-05-04T22:20:14.286Z",
+      "kind": "seo-page",
+      "ok": true,
+      "context": {
+        "slug": "supabase-realtime-subscriptions-nextjs",
+        "lang": "de"
+      },
+      "bytes": 11763
+    },
+    {
+      "at": "2026-05-04T22:20:25.917Z",
+      "kind": "seo-page",
+      "ok": true,
+      "context": {
+        "slug": "supabase-realtime-subscriptions-nextjs",
+        "lang": "fr"
+      },
+      "bytes": 12216
+    },
+    {
+      "at": "2026-05-04T22:20:40.596Z",
+      "kind": "seo-page",
+      "ok": true,
+      "context": {
+        "slug": "ai-agent-debugging-trace-replay",
+        "h1": "Debugging AI Agents with Trace Replay"
+      },
+      "bytes": 10865
+    },
+    {
+      "at": "2026-05-04T22:20:51.183Z",
+      "kind": "seo-page",
+      "ok": true,
+      "context": {
+        "slug": "ai-agent-debugging-trace-replay",
+        "lang": "es"
+      },
+      "bytes": 11497
+    },
+    {
+      "at": "2026-05-04T22:21:03.494Z",
+      "kind": "seo-page",
+      "ok": true,
+      "context": {
+        "slug": "ai-agent-debugging-trace-replay",
+        "lang": "de"
+      },
+      "bytes": 11594
+    },
+    {
+      "at": "2026-05-04T22:21:14.638Z",
+      "kind": "seo-page",
+      "ok": true,
+      "context": {
+        "slug": "ai-agent-debugging-trace-replay",
+        "lang": "fr"
+      },
+      "bytes": 11858
     }
   ]
 }

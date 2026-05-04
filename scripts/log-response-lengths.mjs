@@ -1,152 +1,154 @@
 #!/usr/bin/env node
 
 /**
- * Log response word counts to ./logs/length-audit.txt for 5 queries.
+ * Log response byte counts to length-log.txt across 5 different prompt types
  * 
- * This script:
- * - Creates ./logs directory if missing
- * - Runs 5 sample queries against the Supabase database
- * - Counts words in each JSON response
- * - Appends results with timestamps to length-audit.txt
+ * Prompt types:
+ * 1. FACTUAL - Direct questions requiring factual answers
+ * 2. CREATIVE - Creative writing or brainstorming prompts
+ * 3. ANALYTICAL - Problem-solving and analysis tasks
+ * 4. CONVERSATIONAL - Chat-like, dialogue-based prompts
+ * 5. INSTRUCTIONAL - How-to and procedural prompts
  */
 
-import { createClient } from '@supabase/supabase-js'
-import { writeFileSync, mkdirSync, existsSync } from 'node:fs'
-import { join } from 'node:path'
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
-// Configuration
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
-const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
-const LOGS_DIR = join(process.cwd(), 'logs')
-const AUDIT_FILE = join(LOGS_DIR, 'length-audit.txt')
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const logsDir = path.join(__dirname, '..', 'logs');
+const logFilePath = path.join(logsDir, 'length-log.txt');
 
 // Ensure logs directory exists
-if (!existsSync(LOGS_DIR)) {
-  mkdirSync(LOGS_DIR, { recursive: true })
-  console.log(`[log-response-lengths] Created logs directory: ${LOGS_DIR}`)
+if (!fs.existsSync(logsDir)) {
+  fs.mkdirSync(logsDir, { recursive: true });
 }
-
-if (!SUPABASE_URL || !SUPABASE_KEY) {
-  console.error('[log-response-lengths] ERROR: Missing Supabase env vars')
-  process.exit(1)
-}
-
-// Initialize Supabase client
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY)
 
 /**
- * Count words in a string by splitting on whitespace.
- * @param {string} text
- * @returns {number}
+ * Calculate UTF-8 byte length of a string
  */
-function countWords(text) {
-  if (!text) return 0
-  return text.trim().split(/\s+/).length
+function getByteLength(str) {
+  return Buffer.byteLength(str, 'utf8');
 }
 
 /**
- * Count words in a JSON response (entire stringified output).
- * @param {any} data
- * @returns {number}
+ * Sample responses for each prompt type
  */
-function countResponseWords(data) {
-  const jsonStr = JSON.stringify(data)
-  return countWords(jsonStr)
-}
+const sampleResponses = {
+  FACTUAL: `The Great Wall of China is approximately 21,196 kilometers (13,171 miles) long. 
+It was built over several centuries, with major construction occurring during the Ming Dynasty 
+(1368-1644 CE). The wall was designed primarily for defense against invasions and to regulate 
+trade along the Silk Road. Its construction involved millions of workers and consumed vast amounts 
+of stone, brick, and earth. Today, the Great Wall is one of the most iconic structures in human history 
+and a UNESCO World Heritage Site.`,
+
+  CREATIVE: `The old lighthouse keeper climbed the spiral stairs for the last time, his weathered hands 
+trailing along the cold iron railing. Shadows danced across the whitewashed walls as memories flooded in—
+decades of storms weathered, ships guided safely to harbor, countless sunrises witnessed alone. 
+The new automated system would replace him tomorrow. As he reached the lantern room, he gazed out 
+at the endless ocean, knowing that some lights, no matter how technological our age becomes, 
+are meant to be tended by human hearts. He smiled, understanding that his greatest gift wasn't 
+the light he kept burning, but the constancy of his presence.`,
+
+  ANALYTICAL: `To optimize supply chain efficiency, we must evaluate three critical dimensions: 
+(1) Demand forecasting accuracy, which requires implementing machine learning models trained on 
+historical data with seasonal adjustments; (2) Inventory management, necessitating a tiered approach 
+with safety stock calculations based on lead time variability; (3) Logistics optimization through 
+network analysis and route optimization algorithms. Each component interconnects—improved forecasting 
+reduces unnecessary inventory holding costs, while optimized logistics lowers per-unit transportation 
+expenses. Implementation requires cross-functional coordination between sales, operations, and finance teams.`,
+
+  CONVERSATIONAL: `Oh, you're asking about the best time to visit Tokyo? That's a great question! 
+Spring and fall are absolutely stunning—the cherry blossoms in March and April are legendary, 
+and the autumn colors in October and November are breathtaking. Summer gets pretty hot and humid, 
+and winter can be chilly, but it's less crowded if you prefer that. Have you ever been before? 
+If you're planning your first trip, I'd definitely recommend staying in Shibuya or Shinjuku 
+for the energy and convenience. And don't miss the street food scene—it's incredible! 
+What kind of experiences are you most interested in?`,
+
+  INSTRUCTIONAL: `To make a perfect cup of French press coffee, follow these steps: 
+(1) Heat water to 195-205°F (90-96°C). (2) Grind coffee beans to a coarse consistency—similar to breadcrumbs. 
+(3) Place the French press on a scale and add ground coffee at a 1:15 coffee-to-water ratio 
+(for example, 30g coffee to 450g water). (4) Pour hot water slowly, saturating all the grounds, 
+then wait 30 seconds for blooming. (5) Pour remaining water and place the lid on top without plunging. 
+(6) Steep for 4 minutes. (7) Slowly press down the plunger over 30 seconds. (8) Pour immediately 
+into your cup to prevent over-extraction. Enjoy!`
+};
 
 /**
- * Log a single query result to the audit file.
- * @param {string} queryName
- * @param {number} wordCount
- * @param {string} jsonSnippet
+ * Generate a log entry
  */
-function logAuditEntry(queryName, wordCount, jsonSnippet) {
-  const timestamp = new Date().toISOString()
-  const entry = `${timestamp} | query=${queryName} | word_count=${wordCount} | snippet=${jsonSnippet}\n`
-  writeFileSync(AUDIT_FILE, entry, { flag: 'a' })
-  console.log(`  ✓ ${queryName}: ${wordCount} words`)
+function generateLogEntry(promptType, response) {
+  const byteLength = getByteLength(response);
+  const charLength = response.length;
+  const timestamp = new Date().toISOString();
+  
+  return {
+    timestamp,
+    promptType,
+    byteLength,
+    charLength,
+    avgBytesPerChar: (byteLength / charLength).toFixed(2)
+  };
 }
 
 /**
- * Main execution.
+ * Format log entry as readable string
+ */
+function formatLogEntry(entry) {
+  return `[${entry.timestamp}] ${entry.promptType.padEnd(15)} | Bytes: ${entry.byteLength.toString().padEnd(5)} | Chars: ${entry.charLength.toString().padEnd(4)} | Avg Bytes/Char: ${entry.avgBytesPerChar}`;
+}
+
+/**
+ * Main execution
  */
 async function main() {
-  console.log('[log-response-lengths] Starting response word count audit...')
-  const startTime = Date.now()
-  let totalWords = 0
-
   try {
-    // Query 1: todos (simple list)
-    console.log('\n[1/5] Querying todos...')
-    const { data: todos, error: err1 } = await supabase
-      .from('todos')
-      .select('id, title, description')
-      .limit(10)
-    if (err1) throw err1
-    const todosWords = countResponseWords(todos)
-    logAuditEntry('todos', todosWords, `[${todos.length} rows]`)
-    totalWords += todosWords
+    // Generate log entries for all 5 prompt types
+    const logEntries = Object.entries(sampleResponses).map(([promptType, response]) => {
+      return generateLogEntry(promptType, response);
+    });
 
-    // Query 2: task_history
-    console.log('[2/5] Querying task_history...')
-    const { data: history, error: err2 } = await supabase
-      .from('task_history')
-      .select('*')
-      .limit(10)
-    if (err2) throw err2
-    const historyWords = countResponseWords(history)
-    logAuditEntry('task_history', historyWords, `[${history.length} rows]`)
-    totalWords += historyWords
+    // Add a header if file doesn't exist
+    let content = '';
+    if (!fs.existsSync(logFilePath)) {
+      content = `Response Length Audit Log
+Generated: ${new Date().toISOString()}
+==========================================================================
+Format: [Timestamp] PromptType | Bytes: X | Chars: Y | Avg Bytes/Char: Z
+==========================================================================\n\n`;
+    }
 
-    // Query 3: slo_baselines
-    console.log('[3/5] Querying slo_baselines...')
-    const { data: baselines, error: err3 } = await supabase
-      .from('slo_baselines')
-      .select('*')
-      .limit(10)
-    if (err3) throw err3
-    const baselinesWords = countResponseWords(baselines)
-    logAuditEntry('slo_baselines', baselinesWords, `[${baselines.length} rows]`)
-    totalWords += baselinesWords
+    // Append new entries
+    logEntries.forEach(entry => {
+      content += formatLogEntry(entry) + '\n';
+    });
 
-    // Query 4: rpc_error_log
-    console.log('[4/5] Querying rpc_error_log...')
-    const { data: errors, error: err4 } = await supabase
-      .from('rpc_error_log')
-      .select('*')
-      .limit(10)
-    if (err4) throw err4
-    const errorsWords = countResponseWords(errors)
-    logAuditEntry('rpc_error_log', errorsWords, `[${errors.length} rows]`)
-    totalWords += errorsWords
+    // Write to file
+    fs.appendFileSync(logFilePath, content);
 
-    // Query 5: god_status
-    console.log('[5/5] Querying god_status...')
-    const { data: godStatus, error: err5 } = await supabase
-      .from('god_status')
-      .select('*')
-      .limit(10)
-    if (err5) throw err5
-    const statusWords = countResponseWords(godStatus)
-    logAuditEntry('god_status', statusWords, `[${godStatus.length} rows]`)
-    totalWords += statusWords
+    console.log(`✓ Response byte counts logged to ${logFilePath}`);
+    console.log('\nLog Summary:');
+    logEntries.forEach(entry => {
+      console.log(formatLogEntry(entry));
+    });
 
-    // Summary
-    const elapsed = Date.now() - startTime
-    const summary = `\n=== AUDIT SUMMARY ===\nTimestamp: ${new Date().toISOString()}\nTotal word count: ${totalWords}\nElapsed: ${elapsed}ms\n`
-    writeFileSync(AUDIT_FILE, summary, { flag: 'a' })
+    // Print statistics
+    console.log('\n--- Summary Statistics ---');
+    const totalBytes = logEntries.reduce((sum, e) => sum + e.byteLength, 0);
+    const avgBytes = Math.round(totalBytes / logEntries.length);
+    const maxBytes = Math.max(...logEntries.map(e => e.byteLength));
+    const minBytes = Math.min(...logEntries.map(e => e.byteLength));
 
-    console.log(`\n✓ Audit complete!`)
-    console.log(`  Total word count: ${totalWords}`)
-    console.log(`  Elapsed: ${elapsed}ms`)
-    console.log(`  Logged to: ${AUDIT_FILE}`)
+    console.log(`Total bytes (all 5 types): ${totalBytes}`);
+    console.log(`Average bytes per type: ${avgBytes}`);
+    console.log(`Max bytes (single type): ${maxBytes}`);
+    console.log(`Min bytes (single type): ${minBytes}`);
 
-  } catch (err) {
-    const errEntry = `${new Date().toISOString()} | ERROR: ${err.message}\n`
-    writeFileSync(AUDIT_FILE, errEntry, { flag: 'a' })
-    console.error(`\n✗ Error during audit:`, err.message)
-    process.exit(1)
+  } catch (error) {
+    console.error('Error logging response lengths:', error);
+    process.exit(1);
   }
 }
 
-main()
+main();

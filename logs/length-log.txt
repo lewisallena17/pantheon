@@ -1,0 +1,18 @@
+Response Length Audit Log
+Generated: 2025-01-14T10:30:00Z
+==========================================================================
+Format: [Timestamp] PromptType | Bytes: X | Chars: Y | Avg Bytes/Char: Z
+==========================================================================
+
+[2025-01-14T10:30:00.000Z] FACTUAL         | Bytes: 644   | Chars: 606  | Avg Bytes/Char: 1.06
+[2025-01-14T10:30:00.001Z] CREATIVE        | Bytes: 648   | Chars: 610  | Avg Bytes/Char: 1.06
+[2025-01-14T10:30:00.002Z] ANALYTICAL      | Bytes: 709   | Chars: 667  | Avg Bytes/Char: 1.06
+[2025-01-14T10:30:00.003Z] CONVERSATIONAL  | Bytes: 678   | Chars: 639  | Avg Bytes/Char: 1.06
+[2025-01-14T10:30:00.004Z] INSTRUCTIONAL   | Bytes: 715   | Chars: 674  | Avg Bytes/Char: 1.06
+
+--- Summary Statistics ---
+Total bytes (all 5 types): 3394
+Average bytes per type: 678.8
+Max bytes (single type): 715
+Min bytes (single type): 644
+Prompt Type Distribution: FACTUAL(644), CREATIVE(648), ANALYTICAL(709), CONVERSATIONAL(678), INSTRUCTIONAL(715)
