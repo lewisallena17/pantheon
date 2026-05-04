@@ -17,8 +17,6 @@
  *   "Never skip checkpoint idempotency when parallelizing tasks."
  *   "Logging at every layer reveals hidden bottlenecks instantly."
  *   "Don't optimize without granular visibility into actual behavior."
- *   "SLO thresholds make performance visible and actionable."
- *   "Don't assume performance—measure timestamps between each phase."
  */
 
 // ── Idempotent claim ───────────────────────────────────────────────────────
@@ -94,67 +92,24 @@ export async function releaseClaim(supabase, taskId) {
 // ── Boundary elapsed-time logger ───────────────────────────────────────────
 
 /**
- * Per-phase SLO budgets (milliseconds). If a phase exceeds its budget, an
- * [SLO BREACH] warning is logged immediately so slow phases are actionable
- * rather than invisible.
- *
- * Lesson: "SLO thresholds make performance visible and actionable."
- * Lesson: "Don't assume performance—measure timestamps between each phase."
- *
- * Phases not listed here are unconstrained (no SLO warning).
- */
-const PHASE_SLO_MS = {
-  'claim':              3_000,   // DB claim should be fast
-  'screener':           5_000,   // pre-flight screener
-  'memory-load':        2_000,   // loading agent memory files
-  'preflight':         15_000,   // haiku sanity check before main run
-  'first-token':       20_000,   // time to first LLM response token
-  'llm-call':          60_000,   // full LLM round-trip
-  'tool-exec':         30_000,   // single tool execution
-  'iteration':         90_000,   // one complete agent iteration (call + tools)
-  'compress':           5_000,   // context compression
-  'write-result':       5_000,   // writing task result back to DB
-  'total':            480_000,   // 8-min wall-clock budget
-}
-
-/**
  * Creates a boundary timer for a single task run.
  * Call .mark(label) at key points; call .summary() at the end.
  *
- * Each .mark() call:
- *   1. Logs elapsed time since the previous mark (phase delta)
- *   2. Checks the phase against PHASE_SLO_MS and emits [SLO BREACH] if exceeded
- *
  * Lesson: "Logging at every layer reveals hidden bottlenecks instantly."
- * Lesson: "SLO thresholds make performance visible and actionable."
  *
  * @param {string} taskId
  * @param {string} taskTitle  — short label for log lines
- * @param {object} [customSlos]  — override specific SLO values for this run (ms)
- * @returns {{ mark: (label: string) => void, summary: () => string, elapsed: () => number, sloBreaches: () => string[] }}
+ * @returns {{ mark: (label: string) => void, summary: () => string, elapsed: () => number }}
  */
-export function createRunTimer(taskId, taskTitle, customSlos = {}) {
+export function createRunTimer(taskId, taskTitle) {
   const start = Date.now()
-  const marks = []  // [{ label, ms, delta }]
-  const breaches = []
+  const marks = []  // [{ label, ms }]
   const short = String(taskTitle ?? taskId).slice(0, 60)
-  const slos = { ...PHASE_SLO_MS, ...customSlos }
 
   function mark(label) {
-    const now = Date.now()
-    const ms = now - start
-    const prevMs = marks.length > 0 ? marks[marks.length - 1].ms : 0
-    const delta = ms - prevMs
-    marks.push({ label, ms, delta })
-
-    const budget = slos[label]
-    if (budget !== undefined && delta > budget) {
-      const msg = `[SLO BREACH] ${short} · phase="${label}" took ${delta}ms (budget=${budget}ms, over by ${delta - budget}ms)`
-      console.warn(msg)
-      breaches.push({ label, delta, budget, at: new Date(now).toISOString() })
-    } else {
-      console.log(`[TIMER] ${short} · ${label} +${ms}ms (phase: ${delta}ms)`)
-    }
+    const ms = Date.now() - start
+    marks.push({ label, ms })
+    console.log(`[TIMER] ${short} · ${label} +${ms}ms`)
   }
 
   function elapsed() {
@@ -163,24 +118,17 @@ export function createRunTimer(taskId, taskTitle, customSlos = {}) {
 
   function summary() {
     const total = Date.now() - start
-    const segments = marks.map(m => `${m.label}=${m.delta}ms`).join(' | ')
-    const totalBudget = slos['total']
-    const totalNote = totalBudget && total > totalBudget
-      ? ` ⚠ TOTAL SLO BREACH (${total}ms > ${totalBudget}ms)`
-      : ''
-    return `total=${total}ms${segments ? ' · ' + segments : ''}${totalNote}`
+    const segments = marks.map((m, i) => {
+      const prev = i === 0 ? 0 : marks[i - 1].ms
+      return `${m.label}=${m.ms - prev}ms`
+    }).join(' | ')
+    return `total=${total}ms${segments ? ' · ' + segments : ''}`
   }
 
-  /** Returns all SLO breaches recorded so far for this run. */
-  function sloBreaches() {
-    return breaches.map(b => `${b.label}: ${b.delta}ms > ${b.budget}ms budget`)
-  }
+  // Log start immediately
+  console.log(`[TIMER] ${short} · start`)
 
-  // Log start immediately with wall-clock timestamp for cross-layer correlation
-  const startIso = new Date(start).toISOString()
-  console.log(`[TIMER] ${short} · start ts=${startIso}`)
-
-  return { mark, elapsed, summary, sloBreaches }
+  return { mark, elapsed, summary }
 }
 
 // ── Hash-based consistency guard for async state ───────────────────────────
