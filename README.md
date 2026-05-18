@@ -94,6 +94,9 @@ npm run dev               # dashboard at localhost:3000
 
 Full setup guide: [INSTALL.md](./INSTALL.md)
 
+**Configuration:**
+- Token limits & cost controls: [CONFIG_USAGE.md](./CONFIG_USAGE.md) — defines `max_tokens_override`, agent pools, feature flags via `config.json`
+
 ## Tech stack
 
 | Piece | Choice |

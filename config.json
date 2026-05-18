@@ -1,0 +1,102 @@
+{
+  "app": {
+    "name": "Autonomous Task Dashboard",
+    "version": "1.0.0",
+    "environment": "development"
+  },
+  "ai": {
+    "provider": "anthropic",
+    "models": {
+      "primary": "claude-opus-4-1-20250805",
+      "fallback": "claude-sonnet-4-6",
+      "lightweight": "claude-haiku-4-5-20251001"
+    },
+    "token_management": {
+      "enabled": true,
+      "description": "Controls token budgets and max_tokens limits for API calls",
+      "max_tokens_default": 4096,
+      "max_tokens_override": null,
+      "max_tokens_override_description": "When set to a positive integer, overrides the default max_tokens for all Claude API calls. Set to null to use model defaults. Valid range: 1-200000. Use with caution—high values increase API costs. See examples below.",
+      "examples": {
+        "disabled": {
+          "max_tokens_override": null,
+          "explanation": "Uses standard per-model defaults (Opus: 4096, Sonnet: 2048, Haiku: 1024). Recommended for most use cases."
+        },
+        "conservative": {
+          "max_tokens_override": 1024,
+          "explanation": "Caps all responses at 1024 tokens. Useful for fast, cheap responses (customer service bots, quick summaries)."
+        },
+        "standard": {
+          "max_tokens_override": 4096,
+          "explanation": "Allows ~2000 words. Good balance of cost + detail for most agentic tasks."
+        },
+        "extended": {
+          "max_tokens_override": 16000,
+          "explanation": "Enables detailed reasoning and long-form code generation. Use for complex multi-step tasks. Higher cost (~16x vs 1024)."
+        },
+        "absolute_max": {
+          "max_tokens_override": 200000,
+          "explanation": "Uses the absolute maximum allowed by Claude API. Only for very specialized use cases (e.g., processing entire codebases or research papers). EXPENSIVE—use with daily cost caps."
+        }
+      },
+      "cost_warning": "Increasing max_tokens can dramatically increase token usage. Example: changing from 1024 to 16000 tokens per call increases cost ~4-16x per request. Always pair with DAILY_COST_LIMIT_USD in .env.local"
+    },
+    "cost_controls": {
+      "daily_limit_usd": 10.0,
+      "per_task_limit_usd": 0.50,
+      "rate_limit_window_minutes": 5,
+      "rate_limit_max_requests": 20
+    }
+  },
+  "database": {
+    "provider": "supabase",
+    "realtime_enabled": true,
+    "connection": {
+      "pooling": true,
+      "max_connections": 10,
+      "idle_timeout_seconds": 30
+    }
+  },
+  "agents": {
+    "god_agent": {
+      "enabled": true,
+      "cycle_interval_seconds": 120,
+      "pools": [
+        {
+          "name": "critical",
+          "max_concurrent": 2,
+          "priority": 1
+        },
+        {
+          "name": "high",
+          "max_concurrent": 4,
+          "priority": 2
+        },
+        {
+          "name": "medium",
+          "max_concurrent": 6,
+          "priority": 3
+        }
+      ]
+    },
+    "specialist_pools": {
+      "db_specialist": true,
+      "ui_specialist": true,
+      "revenue_agent": true,
+      "promote_agent": true
+    }
+  },
+  "features": {
+    "auto_commit_enabled": true,
+    "auto_revert_on_ts_error": true,
+    "discord_notifications": false,
+    "slack_notifications": false,
+    "stuck_task_watchdog_minutes": 15
+  },
+  "logging": {
+    "level": "info",
+    "metrics_file": "logs/metrics.json",
+    "wisdom_file": "scripts/god-wisdom.json",
+    "cost_log_file": "scripts/cost-log.json"
+  }
+}
